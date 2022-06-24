@@ -151,14 +151,41 @@ func updateMask(previous []rune, mask TokenType, char rune) (newmask TokenType, 
 	return
 }
 
-func string_analysis(chars []rune, char rune) (exit_str bool, push []rune) {
-	push = []rune{char}
-	exit_str = false
-	if char == '"' && (len(chars) == 0 || chars[len(chars)-1] != '\\') {
-		push = make([]rune, 0)
-		exit_str = true
+/*
+return exit string, characters to append, escaping error
+*/
+func string_analysis(last rune, char rune) (bool, []rune, error) {
+	if last == '\\' {
+		switch char {
+		case 'n':
+			return false, []rune{'\n'}, nil
+		case '"':
+			return false, []rune{'"'}, nil
+		case '\\':
+			return false, []rune{'\\'}, nil
+		case 'r':
+			return false, []rune{'\r'}, nil
+		case 't':
+			return false, []rune{'\t'}, nil
+		case 'v':
+			return false, []rune{'\v'}, nil
+		case 'b':
+			return false, []rune{'\b'}, nil
+		case 'a':
+			return false, []rune{'\a'}, nil
+		case 'f':
+			return false, []rune{'\f'}, nil
+		default:
+			return false, nil, errors.New(fmt.Sprintf("Unexpected scape character %c", char))
+		}
 	}
-	return
+	if char == '"' {
+		return true, []rune{}, nil
+	}
+	if char == '\\' {
+		return false, []rune{}, nil
+	}
+	return false, []rune{char}, nil
 }
 
 func tokens(line string) (tokens []Token, err error) {
@@ -169,7 +196,11 @@ func tokens(line string) (tokens []Token, err error) {
 	for i, r := range characters {
 		//String lock
 		if mask == StringToken {
-			end, push := string_analysis(value, r)
+			end, push, e := string_analysis(characters[i-1], r)
+			if e != nil {
+				err = e
+				return
+			}
 			if len(push) > 0 {
 				value = append(value, push...)
 			}
