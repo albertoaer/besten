@@ -32,7 +32,7 @@ func nextV(tks []Token, v string) bool {
 
 func unexpect(tks []Token) error {
 	if len(tks) > 0 {
-		return errors.New(fmt.Sprintf("Unexpected token: %v", tks[0]))
+		return errors.New(fmt.Sprintf("Unexpected token: %s of type %s", tks[0].Data, tks[0].Kind.Representation()))
 	} else {
 		return nil
 	}
@@ -47,7 +47,7 @@ func expect(tks []Token, t Token) ([]Token, error) {
 
 func expectT(tks []Token, t TokenType) (Token, []Token, error) {
 	if len(tks) == 0 || tks[0].Kind != t {
-		return Token{}, nil, errors.New(fmt.Sprintf("Expecting token type %d", t))
+		return Token{}, nil, errors.New(fmt.Sprintf("Expecting token type %s", t.Representation()))
 	}
 	return tks[0], tks[1:], nil
 }

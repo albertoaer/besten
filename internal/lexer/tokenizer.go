@@ -20,6 +20,29 @@ const (
 	StringToken   TokenType = 64
 )
 
+func (ttype TokenType) Representation() string {
+	switch ttype {
+	case NoneToken:
+		return "None"
+	case KeywordToken:
+		return "Keyword"
+	case IdToken:
+		return "Identifier"
+	case SpecialToken:
+		return "Special Markup Identifier"
+	case OperatorToken:
+		return "Operator"
+	case IntegerToken:
+		return "Numeric Integer"
+	case DecimalToken:
+		return "Numeric decimal"
+	case StringToken:
+		return "String"
+	default:
+		return "UNKNOWN TYPE"
+	}
+}
+
 type Token struct {
 	Data string
 	Kind TokenType
@@ -31,7 +54,7 @@ var negative_mark rune = '-'
 var underscore_mark rune = '_'
 var specials []string = []string{",", ".", "(", ")", ":"}
 var keywords []string = []string{"require", "import", "struct", "return", "fn", "op", "do",
-	"val", "var", "if", "else", "for", "while", "collect", "done", "throw", "catch", "true", "false", "direct"}
+	"val", "var", "if", "else", "for", "in", "while", "collect", "done", "throw", "catch", "true", "false", "direct"}
 
 func strArrContains(arr []string, elem string) bool {
 	for _, a := range arr {
