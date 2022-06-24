@@ -160,6 +160,8 @@ func injectBuiltinOperators(to *FunctionCollection) {
 	to.AddSymbols("+", mathOpInstruction(ADD, ADDF))
 	to.AddSymbols("+", wrapOpInstruction(CCS, Str, false))
 	to.AddSymbols("-", mathOpInstruction(SUB, SUBF))
+	to.AddSymbol("-", &FunctionSymbol{"none", false, MKInstruction(SUB, 0).Fragment(), CloneType(Int), []OBJType{Int}})
+	to.AddSymbol("-", &FunctionSymbol{"none", false, MKInstruction(SUBF, 0).Fragment(), CloneType(Dec), []OBJType{Dec}})
 	to.AddSymbols("*", mathOpInstruction(MUL, MULF))
 	to.AddSymbols("/", mathOpInstruction(DIV, DIVF))
 	to.AddSymbols("%", wrapOpInstruction(MOD, Int, false))
