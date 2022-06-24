@@ -98,6 +98,12 @@ const (
 	WTP = 170 //Work to push
 	PTW = 171 //Push to work
 
+	//SIZE
+
+	SOS = 180 //Size of string
+	SOV = 181 //Size of vector
+	SOM = 182 //Size of map
+
 	//STATE
 
 	SWR = 200 //State write
@@ -411,6 +417,18 @@ func init() {
 	}, 0}
 	operations[PTW] = Operation{func(proc *Process, l [2]Object) {
 		proc.SetWorkingObject(l[0])
+	}, 1}
+
+	//SIZE
+
+	operations[SOS] = Operation{func(proc *Process, l [2]Object) {
+		proc.functionstack.Push(len(l[0].(string)))
+	}, 1}
+	operations[SOV] = Operation{func(proc *Process, l [2]Object) {
+		proc.functionstack.Push(len(*l[0].(VecT)))
+	}, 1}
+	operations[SOM] = Operation{func(proc *Process, l [2]Object) {
+		proc.functionstack.Push(len(l[0].(MapT)))
 	}, 1}
 
 	//STATE

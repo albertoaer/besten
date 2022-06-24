@@ -49,6 +49,7 @@ func injectBuiltinFunctions(to *FunctionCollection) {
 		Returns: false,
 	}).Fragment(), &Void, []OBJType{Any}})
 	to.AddSymbols("str", multiTypeInstruction(1, Str, map[OBJType]ICode{Str: NOP, Int: IRE, Dec: DRE}))
+	to.AddSymbols("len", multiTypeInstruction(1, Int, map[OBJType]ICode{Str: SOS, MapOf(Any): SOM, VecOf(Any): SOV}))
 }
 
 func injectBuiltinOperators(to *FunctionCollection) {
