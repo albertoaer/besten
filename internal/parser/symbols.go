@@ -268,7 +268,7 @@ func (s *Scope) ImportFrom(other *Scope) error {
 		s.Variables[k] = v
 	}
 	for k, v := range other.DefinedTypes {
-		if _, ex := s.DefinedTypes[k]; ex {
+		if tp, ex := s.DefinedTypes[k]; ex && !(*tp).Module().Is((*tp).Module()) {
 			return fmt.Errorf("Type %s already defined", k)
 		}
 		s.DefinedTypes[k] = v
