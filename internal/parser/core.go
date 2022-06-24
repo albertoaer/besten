@@ -197,16 +197,14 @@ func (p *Parser) parseReturn(block Block) error {
 		if e != nil {
 			return e
 		}
-		//Is valid returning void, in order to achive infinite recursion
-		if (!(*p.currentScope().Returned) && (*p.currentScope().ReturnType).Primitive() == VOID) || CompareTypes(*p.currentScope().ReturnType, ret) {
-			*p.currentScope().ReturnType = ret
-		} else {
-			return errors.New(fmt.Sprintf("Expecting return type: %s", (*p.currentScope().ReturnType).TypeName()))
+		if e = p.currentScope().updateReturn(ret); e != nil {
+			return e
 		}
-	} else if (*p.currentScope().ReturnType).Primitive() != VOID {
-		return errors.New(fmt.Sprintf("Expecting return type: %s", (*p.currentScope().ReturnType).TypeName()))
+	} else {
+		if e := p.currentScope().updateReturn(Void); e != nil {
+			return e
+		}
 	}
-	*p.currentScope().Returned = true
 	p.addInstruction(MKInstruction(RET))
 	*p.currentScope().returnLnFlag = returnLnFlag{true, true}
 	return nil
@@ -793,6 +791,77 @@ func (p *Parser) parseStruct(block Block) error {
 	return p.currentScope().NewType(name.Data, structure)
 }
 
+func (p *Parser) parseThrow(block Block) error {
+	tks := discardOne(block.Tokens)
+	if len(tks) > 0 {
+		ret, e := p.parseExpression(tks, block.Children, true)
+		if e != nil {
+			return e
+		}
+		if ret.Primitive() == VOID {
+			return errors.New("Can not throw Void")
+		}
+		p.addInstruction(MKInstruction(TE))
+	} else {
+		p.addInstruction(MKInstruction(TE, ""))
+	}
+	return nil
+}
+
+func (p *Parser) parseRescue(block Block) error {
+	tks := discardOne(block.Tokens)
+	id, tks, err := expectT(tks, IdToken)
+	if err != nil {
+		return err
+	}
+	args := []string{id.Data}
+	tps := []OBJType{*CloneType(Str)}
+	exported := -1
+	if next(tks, IMPORT) {
+		tks = discardOne(tks)
+		id, tks, err = expectT(tks, IdToken)
+		if err != nil {
+			return err
+		}
+		args = append(args, id.Data)
+		var tp OBJType
+		var i Instruction
+		if i, tp, err = p.currentScope().GetVariableIns(id.Data); err != nil {
+			return err
+		}
+		if i.Code == LLI {
+			exported = i.Inspect()[0].(int) + 128 //(1 << 7)
+		} else if i.Code == LEI {
+			exported = i.Inspect()[0].(int)
+		} else {
+			return errors.New("Unexpected variable kind")
+		}
+		tps = append(tps, tp)
+	}
+	tks, err = expect(tks, DO)
+	if err != nil {
+		return err
+	}
+	if err = unexpect(tks); err != nil {
+		return err
+	}
+	template := FunctionTemplate{Args: args, Varargs: false, Children: block.Children}
+	sym, err := p.generateFunctionFromRawTemplate("*rescue", false, tps, &template)
+	if err != nil {
+		return err
+	}
+	if err = p.currentScope().updateReturn(*sym.Return); err != nil {
+		return err
+	}
+	if p.currentScope().hasRescue {
+		return errors.New("Rescue already setted up for this function")
+	} else {
+		p.currentScope().hasRescue = true
+	}
+	p.addInstruction(MKInstruction(RE, sym.CName, exported))
+	return nil
+}
+
 func (p *Parser) parseByKeyword(name string, block Block, scp ScopeCtx) error {
 	if scp == Global {
 		switch name {
@@ -831,6 +900,10 @@ func (p *Parser) parseByKeyword(name string, block Block, scp ScopeCtx) error {
 			return p.parseBlocks(block.Children, scp)
 		case "drop":
 			return p.parseDropFn(block)
+		case "throw":
+			return p.parseThrow(block)
+		case "rescue":
+			return p.parseRescue(block)
 		}
 	}
 	if scp == Loop {

@@ -330,6 +330,7 @@ type Scope struct {
 	parent          *Scope
 	varcount        *uint
 	argcount        *uint
+	hasRescue       bool
 }
 
 func (s *Scope) forkLoopInfo() {
@@ -344,6 +345,17 @@ func (s *Scope) closeLoopInfo() {
 		panic(errors.New("Trying to close not opened loop"))
 	}
 	s.loopInfo = s.loopInfo.father
+}
+
+func (s *Scope) updateReturn(ret OBJType) error {
+	//Is valid returning void, in order to achive infinite recursion
+	if (!(*s.Returned) && (*s.ReturnType).Primitive() == VOID) || CompareTypes(*s.ReturnType, ret) {
+		*s.ReturnType = ret
+		*s.Returned = true
+	} else {
+		return errors.New(fmt.Sprintf("Expecting return of type: %s", (*s.ReturnType).TypeName()))
+	}
+	return nil
 }
 
 func (s *Scope) CreateVariable(name string, t OBJType, mutable bool, arg bool) {
@@ -427,7 +439,8 @@ func NewScope(name string) *Scope {
 		ifFlags:         createIfFlags(),
 		loopInfo:        nil,
 		returnLnFlag:    createReturnLnFlag(),
-		ReturnType:      &rptr, Returned: &r, parent: nil, varcount: &vc, argcount: &ac}
+		ReturnType:      &rptr, Returned: &r, parent: nil,
+		varcount: &vc, argcount: &ac, hasRescue: false}
 	scope.DataModule = &FileModule{name, scope}
 	return scope
 }
@@ -454,7 +467,8 @@ func (s *Scope) Open(fnscope bool) *Scope {
 		ifFlags:         createIfFlags(),
 		loopInfo:        s.loopInfo,
 		returnLnFlag:    createReturnLnFlag(),
-		ReturnType:      returnt, Returned: returned, parent: s, varcount: vc, argcount: ac}
+		ReturnType:      returnt, Returned: returned, parent: s,
+		varcount: vc, argcount: ac, hasRescue: s.hasRescue}
 	for k, v := range s.ImportedModules {
 		ns.ImportedModules[k] = v
 	}
