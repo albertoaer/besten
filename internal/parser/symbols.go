@@ -154,7 +154,13 @@ func injectBuiltinFunctions(to *FunctionCollection) {
 		}
 		return nil
 	})
-	to.AddSymbol("end", &FunctionSymbol{"none", false, MKInstruction(PSH, 0).Fragment(), CloneType(Bool), []OBJType{Any}})
+	to.AddDynamicSymbol("end", func(o []OBJType) *FunctionSymbol {
+		if len(o) == 1 {
+			return &FunctionSymbol{"none", false,
+				[]Instruction{MKInstruction(POP), MKInstruction(PSH, 0)}, CloneType(Bool), o}
+		}
+		return nil
+	})
 }
 
 func injectBuiltinOperators(to *FunctionCollection) {
