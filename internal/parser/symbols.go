@@ -57,7 +57,6 @@ func injectBuiltinOperators(to *FunctionCollection) {
 	to.AddSymbols("*", mathOpInstruction(MUL, MULF))
 	to.AddSymbols("/", mathOpInstruction(DIV, DIVF))
 	to.AddSymbols("%", wrapOpInstruction(MOD, Int, false))
-	to.AddSymbols("==", multiTypeInstruction(2, Int, map[OBJType]ICode{Str: EQS, Int: EQI, Dec: EQD}))
 	to.AddSymbols("!", wrapOpInstruction(NOT, Int, true))
 	to.AddSymbols("&", wrapOpInstruction(AND, Int, false))
 	to.AddSymbols("|", wrapOpInstruction(OR, Int, false))
@@ -66,6 +65,11 @@ func injectBuiltinOperators(to *FunctionCollection) {
 	to.AddSymbols("&&", wrapOpInstruction(AND, Bool, false))
 	to.AddSymbols("||", wrapOpInstruction(OR, Bool, false))
 	to.AddSymbols("^^", wrapOpInstruction(XOR, Bool, false))
+	to.AddSymbols("==", multiTypeInstruction(2, Bool, map[OBJType]ICode{Str: EQS, Int: EQI, Dec: EQD}))
+	to.AddSymbols("<", multiTypeInstruction(2, Bool, map[OBJType]ICode{Int: ILE, Dec: DLE}))
+	to.AddSymbols(">", multiTypeInstruction(2, Bool, map[OBJType]ICode{Int: IGR, Dec: DGR}))
+	to.AddSymbols("<=", multiTypeInstruction(2, Bool, map[OBJType]ICode{Int: ILQ, Dec: DLQ}))
+	to.AddSymbols(">=", multiTypeInstruction(2, Bool, map[OBJType]ICode{Int: IGQ, Dec: DGQ}))
 }
 
 type Variable struct {
@@ -78,24 +82,32 @@ type Scope struct {
 	Functions  *FunctionCollection
 	Operators  *FunctionCollection
 	ReturnType *OBJType
-	Returned   bool
+	Returned   *bool
 	parent     *Scope
 }
 
 func NewScope() *Scope {
 	rptr := Void
+	r := false
 	return &Scope{Variables: make(map[string]*Variable),
 		Functions:  NewFunctionCollection(),
 		Operators:  NewFunctionCollection(),
-		ReturnType: &rptr, Returned: false, parent: nil}
+		ReturnType: &rptr, Returned: &r, parent: nil}
 }
 
-func (s *Scope) Open() *Scope {
-	rptr := Void
+func (s *Scope) Open(nreturn bool) *Scope {
+	returnt := s.ReturnType
+	returned := s.Returned
+	if nreturn {
+		rptr := Void
+		returnt = &rptr
+		b := false
+		returned = &b
+	}
 	ns := &Scope{Variables: make(map[string]*Variable),
 		Functions:  s.Functions.Fork(),
 		Operators:  s.Operators.Fork(),
-		ReturnType: &rptr, Returned: false, parent: s}
+		ReturnType: returnt, Returned: returned, parent: s}
 	for k, v := range s.Variables {
 		ns.Variables[k] = v
 	}

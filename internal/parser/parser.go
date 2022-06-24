@@ -37,7 +37,7 @@ func NewParser(env ImportEnv) *Parser {
 }
 
 func (p *Parser) makeScope() *Scope {
-	return p.rootscope.Open()
+	return p.rootscope.Open(true)
 }
 
 func (p *Parser) activeFragment() string {
@@ -67,6 +67,13 @@ func (p *Parser) addInstruction(instruction Instruction) int {
 	return len(p.symbols[p.activeFragment()].Source) - 1
 }
 
+//You must prevail in the same fragment to edit an instruction
+func (p *Parser) editInstruction(pos int, instruction Instruction) {
+	s := p.symbols[p.activeFragment()]
+	s.Source[pos] = instruction
+	p.symbols[p.activeFragment()] = s
+}
+
 func (p *Parser) addInstructions(instructions []Instruction) int {
 	s := p.symbols[p.activeFragment()]
 	for _, i := range instructions {
@@ -80,7 +87,7 @@ func (p *Parser) fragmentSize() int {
 	return len(p.symbols[p.activeFragment()].Source)
 }
 
-func (p *Parser) open(name string) {
+func (p *Parser) openFragment(name string) {
 	if _, v := p.symbols[name]; !v {
 		p.symbols[name] = Symbol{Name: name, Source: make(Fragment, 0)}
 	}
@@ -90,7 +97,7 @@ func (p *Parser) open(name string) {
 	p.fragmenttrack = append(p.fragmenttrack, name)
 }
 
-func (p *Parser) back() {
+func (p *Parser) backToFragment() {
 	if len(p.fragmenttrack) == 0 {
 		panic("No symbol to go back to")
 	}
@@ -109,7 +116,7 @@ func (p *Parser) rootScope() *Scope {
 }
 
 func (p *Parser) openScope() {
-	p.scopes[p.activeFragment()] = p.scopes[p.activeFragment()].Open()
+	p.scopes[p.activeFragment()] = p.scopes[p.activeFragment()].Open(false)
 }
 
 func (p *Parser) closeScope() {

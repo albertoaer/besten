@@ -19,10 +19,13 @@ func parseArguments(tks []Token) (args []string, varargs bool, err error) {
 	if err != nil {
 		return
 	}
-	tail := r
-	if ttail, e := expect(tail, DO); len(ttail) != 0 || e != nil {
-		//Arguments no longer have tail, must presume only a 'do' is after the arguments
-		err = errors.New("Expecting only a do keyword after args declaration")
+	tail, e := expect(r, DO)
+	if e != nil {
+		err = e
+		return
+	}
+	if e := unexpect(tail); e != nil {
+		err = e
 		return
 	}
 	for i, v := range argtk {
@@ -114,7 +117,7 @@ func (p *Parser) parseReturn(block Block) error {
 			return e
 		}
 		//Is valid returning void, in order to achive infinite recursion
-		if (!p.currentScope().Returned && (*p.currentScope().ReturnType).Primitive() == VOID) || CompareTypes(*p.currentScope().ReturnType, ret) {
+		if (!(*p.currentScope().Returned) && (*p.currentScope().ReturnType).Primitive() == VOID) || CompareTypes(*p.currentScope().ReturnType, ret) {
 			*p.currentScope().ReturnType = ret
 		} else {
 			return errors.New(fmt.Sprintf("Expecting return type: %s", (*p.currentScope().ReturnType).TypeName()))
@@ -122,7 +125,7 @@ func (p *Parser) parseReturn(block Block) error {
 	} else if (*p.currentScope().ReturnType).Primitive() != VOID {
 		return errors.New(fmt.Sprintf("Expecting return type: %s", (*p.currentScope().ReturnType).TypeName()))
 	}
-	p.currentScope().Returned = true
+	*p.currentScope().Returned = true
 	p.addInstruction(MKInstruction(RET))
 	return nil
 }
@@ -192,6 +195,40 @@ func (p *Parser) parseDirect(block Block) error {
 	return nil
 }
 
+func (p *Parser) parseIf(block Block) error {
+	tks := discardOne(block.Tokens)
+	tks, r := readUntilToken(tks, DO)
+	tp, e := p.parseExpression(tks, nil, false)
+	if e != nil {
+		return e
+	}
+	if tp.Primitive() != BOOL {
+		return errors.New("Expecting boolean expression")
+	}
+	tail, e := expect(r, DO)
+	if e != nil {
+		return e
+	}
+	if e := unexpect(tail); e != nil {
+		return e
+	}
+	editpoint := p.addInstruction(MKInstruction(MVF))
+	begin := p.fragmentSize()
+	p.openScope()
+	e = p.parseBlocks(block.Children, Function)
+	if e != nil {
+		return e
+	}
+	p.closeScope()
+	end := p.fragmentSize()
+	p.editInstruction(editpoint, MKInstruction(MVF, end-begin))
+	return nil
+}
+
+func (p *Parser) parseElse(block Block) error {
+	return nil
+}
+
 func (p *Parser) parseByKeyword(name string, block Block, scp ScopeCtx) error {
 	if scp == Global {
 		switch name {
@@ -207,6 +244,10 @@ func (p *Parser) parseByKeyword(name string, block Block, scp ScopeCtx) error {
 			return p.parseReturn(block)
 		case "direct":
 			return p.parseDirect(block)
+		case "if":
+			return p.parseIf(block)
+		case "else":
+			return p.parseElse(block)
 		}
 	}
 	switch name {

@@ -1,7 +1,7 @@
 package parser
 
 import (
-	"crypto/sha1"
+	"crypto/md5"
 	"errors"
 	"fmt"
 	"strconv"
@@ -89,7 +89,7 @@ func (p *Parser) generateFunctionFromTemplate(name string, operator bool, caller
 	}
 	compilename := generateFnUUID(name, p.modulename, len(callers))
 
-	p.open(compilename)
+	p.openFragment(compilename)
 
 	/*
 		Create function reference before function in order to avoid posible infinite dependency loops
@@ -103,7 +103,7 @@ func (p *Parser) generateFunctionFromTemplate(name string, operator bool, caller
 
 	for i := range template.Args {
 		//Stack, invert order
-		p.addInstruction(runtime.MKInstruction(runtime.SET, template.Args[len(template.Args)-i-1]))
+		p.addInstruction(runtime.MKInstruction(runtime.SET, template.Args[i]))
 		p.currentScope().Variables[template.Args[i]] = &Variable{callers[i], true}
 	}
 	err = p.parseBlocks(template.Children, Function)
@@ -111,7 +111,7 @@ func (p *Parser) generateFunctionFromTemplate(name string, operator bool, caller
 		return
 	}
 	p.addInstruction(runtime.MKInstruction(runtime.RET))
-	p.back()
+	p.backToFragment()
 
 	return
 }
@@ -137,7 +137,7 @@ func generateFnUUID(name, module string, args int) string {
 			int
 		}{name, args}] = v
 	}
-	modulesum := sha1.Sum([]byte(module))
+	modulesum := md5.Sum([]byte(module))
 	result := fmt.Sprintf("%s/%d@%x%d", name, args, modulesum, *v)
 	(*v)++
 	return result
