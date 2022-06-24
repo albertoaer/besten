@@ -3,16 +3,18 @@ package runtime
 type ICode uint16
 
 const (
+	NOP ICode = 0
+
 	//Arithmetic
-	ADD  ICode = 0
-	SUB        = 1
-	MUL        = 2
-	DIV        = 3
-	MOD        = 4
-	ADDF       = 5
-	SUBF       = 6
-	MULF       = 7
-	DIVF       = 8
+	ADD  = 10
+	SUB  = 11
+	MUL  = 12
+	DIV  = 13
+	MOD  = 14
+	ADDF = 15
+	SUBF = 16
+	MULF = 17
+	DIVF = 18
 
 	//Conversion
 	ITD = 20
@@ -34,9 +36,8 @@ const (
 	CLS = 81 //Closes context
 	GET = 82 //Gets variable from context
 	SET = 83 //Sets variable into context
-	MRK = 84 //Mark context to memory
-	RCV = 85 //Recover context on the top
-	ISO = 86 //Creates void isolated context
+	SCC = 84 //Saves current context
+	RSC = 85 //Recover saved context
 
 	//Stack
 	PSH = 90 //Push top
@@ -46,33 +47,43 @@ const (
 	SWT = 94 //Switch two last
 
 	//CONTROl
-	DEF = 120 //DEF $NAME $BLOCKSIZE
-	CLL = 121 //Jumps into symbol address and saves actual address
-	JMP = 122 //Jumps into symbol address
+	CLL = 120 //Jumps into symbol address and saves actual address
+	JMP = 121 //Jumps into symbol address
+	RET = 122 //Return to last address in the stack
 	SKT = 123 //Skips next line if true
 	SKF = 124 //Skips next line if false
-	RET = 125 //Return to last address in the stack
-	MVR = 126 //Moves pc relative to position
-	MVT = 127 //Moves pc relative to position if true
-	MVF = 128 //Moves pc relative to position if false
+	MVR = 125 //Moves pc relative to position
+	MVT = 126 //Moves pc relative to position if true
+	MVF = 127 //Moves pc relative to position if false
 
 	//MAPS AND VECTORS
 	KVC = 160 //Creates a map
-	ATT = 161 //Attach value to map
-	PRP = 162 //Gets value from map
-	VEC = 163 //Creates a vector
-	ACC = 164 //Access position of vector
-	APP = 165 //Insert element at the end of a vector
+	PRP = 161 //Gets value from map
+	ATT = 162 //Attaches value to map
+	EXK = 163 //Finds out if key is already in map
+	VEC = 164 //Creates a vector
+	ACC = 165 //Accesses position of vector
+	APP = 166 //Appends element at the end of a vector
+	SVI = 167 //Set vector item at position
 
-	//Exceptions
-	THROW = 200
+	//STATE
+	SWR = 200 //State write
+	SRE = 201 //State read
 
-	//Others
-	INV = 240 //Invokes native function
+	//Threads
+	FRK = 240 //Forks, next line will run in a different thread (stack is copied) and adds pid to father thread
+	ELL = 241 //Ends life line, stops current thread
+	FPI = 242 //Pushes to stack the father pid
+	MSG = 243 //Sends message to pid
+	AWA = 244 //Blocks threads until message (pushed into the stack)
+
+	//Interaction
+	INV = 280 //Invokes native function
+	SYS = 281 //Invokes a system call
 )
 
 type Operation struct {
-	Action   func(*VM, ...Object)
+	Action   func(*Process, ...Object)
 	Operands uint
 }
 
@@ -82,183 +93,200 @@ func init() {
 	operations = make(map[ICode]Operation)
 
 	//Arithmetic
-	operations[ADD] = Operation{func(v *VM, l ...Object) {
-		v.Push(l[0].(int) + l[1].(int))
+	operations[ADD] = Operation{func(proc *Process, l ...Object) {
+		proc.Push(l[0].(int) + l[1].(int))
 	}, 2}
-	operations[SUB] = Operation{func(v *VM, l ...Object) {
-		v.Push(l[0].(int) - l[1].(int))
+	operations[SUB] = Operation{func(proc *Process, l ...Object) {
+		proc.Push(l[0].(int) - l[1].(int))
 	}, 2}
-	operations[MUL] = Operation{func(v *VM, l ...Object) {
-		v.Push(l[0].(int) * l[1].(int))
+	operations[MUL] = Operation{func(proc *Process, l ...Object) {
+		proc.Push(l[0].(int) * l[1].(int))
 	}, 2}
-	operations[DIV] = Operation{func(v *VM, l ...Object) {
-		v.Push(l[0].(int) / l[1].(int))
+	operations[DIV] = Operation{func(proc *Process, l ...Object) {
+		proc.Push(l[0].(int) / l[1].(int))
 	}, 2}
-	operations[MOD] = Operation{func(v *VM, l ...Object) {
-		v.Push(l[0].(int) % l[1].(int))
+	operations[MOD] = Operation{func(proc *Process, l ...Object) {
+		proc.Push(l[0].(int) % l[1].(int))
 	}, 2}
-	operations[ADDF] = Operation{func(v *VM, l ...Object) {
-		v.Push(l[0].(float64) + l[1].(float64))
+	operations[ADDF] = Operation{func(proc *Process, l ...Object) {
+		proc.Push(l[0].(float64) + l[1].(float64))
 	}, 2}
-	operations[SUBF] = Operation{func(v *VM, l ...Object) {
-		v.Push(l[0].(float64) - l[1].(float64))
+	operations[SUBF] = Operation{func(proc *Process, l ...Object) {
+		proc.Push(l[0].(float64) - l[1].(float64))
 	}, 2}
-	operations[MULF] = Operation{func(v *VM, l ...Object) {
-		v.Push(l[0].(float64) * l[1].(float64))
+	operations[MULF] = Operation{func(proc *Process, l ...Object) {
+		proc.Push(l[0].(float64) * l[1].(float64))
 	}, 2}
-	operations[DIVF] = Operation{func(v *VM, l ...Object) {
-		v.Push(l[0].(float64) / l[1].(float64))
+	operations[DIVF] = Operation{func(proc *Process, l ...Object) {
+		proc.Push(l[0].(float64) / l[1].(float64))
 	}, 2}
 
 	//Conversion
-	operations[ITD] = Operation{func(v *VM, l ...Object) {
-		v.Push(float64(l[0].(int)))
+	operations[ITD] = Operation{func(proc *Process, l ...Object) {
+		proc.Push(float64(l[0].(int)))
 	}, 1}
-	operations[DTI] = Operation{func(v *VM, l ...Object) {
-		v.Push(int(l[0].(float64)))
+	operations[DTI] = Operation{func(proc *Process, l ...Object) {
+		proc.Push(int(l[0].(float64)))
 	}, 1}
 
 	//Equality
-	operations[EQI] = Operation{func(v *VM, l ...Object) {
+	operations[EQI] = Operation{func(proc *Process, l ...Object) {
 		if l[0].(int) == l[1].(int) {
-			v.Push(1)
+			proc.Push(1)
 		} else {
-			v.Push(0)
+			proc.Push(0)
 		}
 	}, 2}
-	operations[EQD] = Operation{func(v *VM, l ...Object) {
+	operations[EQD] = Operation{func(proc *Process, l ...Object) {
 		if l[0].(float64) == l[1].(float64) {
-			v.Push(1)
+			proc.Push(1)
 		} else {
-			v.Push(0)
+			proc.Push(0)
 		}
 	}, 2}
-	operations[EQS] = Operation{func(v *VM, l ...Object) {
+	operations[EQS] = Operation{func(proc *Process, l ...Object) {
 		if l[0].(string) == l[1].(string) {
-			v.Push(1)
+			proc.Push(1)
 		} else {
-			v.Push(0)
+			proc.Push(0)
 		}
 	}, 2}
 
 	//Logic
-	operations[NOT] = Operation{func(v *VM, l ...Object) {
-		v.Push(^l[0].(int))
+	operations[NOT] = Operation{func(proc *Process, l ...Object) {
+		proc.Push(^l[0].(int))
 	}, 1}
-	operations[AND] = Operation{func(v *VM, l ...Object) {
-		v.Push(l[0].(int) & l[1].(int))
+	operations[AND] = Operation{func(proc *Process, l ...Object) {
+		proc.Push(l[0].(int) & l[1].(int))
 	}, 2}
-	operations[OR] = Operation{func(v *VM, l ...Object) {
-		v.Push(l[0].(int) | l[1].(int))
+	operations[OR] = Operation{func(proc *Process, l ...Object) {
+		proc.Push(l[0].(int) | l[1].(int))
 	}, 2}
-	operations[XOR] = Operation{func(v *VM, l ...Object) {
-		v.Push(l[0].(int) ^ l[1].(int))
+	operations[XOR] = Operation{func(proc *Process, l ...Object) {
+		proc.Push(l[0].(int) ^ l[1].(int))
 	}, 2}
 
 	//CONTEXT
-	operations[OPN] = Operation{func(v *VM, l ...Object) {
-		v.Open()
+	operations[OPN] = Operation{func(proc *Process, l ...Object) {
+		proc.Open()
 	}, 0}
-	operations[CLS] = Operation{func(v *VM, l ...Object) {
-		v.Close()
+	operations[CLS] = Operation{func(proc *Process, l ...Object) {
+		proc.Close()
 	}, 0}
-	operations[GET] = Operation{func(v *VM, l ...Object) {
-		t, e := v.Get(l[0].(string))
+	operations[GET] = Operation{func(proc *Process, l ...Object) {
+		t, e := proc.Get(l[0].(string))
 		if e != nil {
 			panic(e)
 		}
-		v.Push(t)
+		proc.Push(t)
 	}, 1}
-	operations[SET] = Operation{func(v *VM, l ...Object) {
-		v.Set(l[0].(string), l[1])
+	operations[SET] = Operation{func(proc *Process, l ...Object) {
+		proc.Set(l[0].(string), l[1])
 	}, 2}
-	operations[MRK] = Operation{func(v *VM, l ...Object) {
-		c, e := v.ActiveContext()
-		if e != nil {
-			panic(e)
-		}
-		v.markedcontexts[l[0].(string)] = c
+	operations[SCC] = Operation{func(proc *Process, l ...Object) {
+		proc.SaveContext(l[0].(string))
 	}, 1}
-	operations[RCV] = Operation{func(v *VM, l ...Object) {
-		c := v.markedcontexts[l[0].(string)]
-		v.context = append(v.context, c)
-	}, 1}
-	operations[ISO] = Operation{func(v *VM, l ...Object) {
-		v.context = append(v.context, NContext())
+	operations[RSC] = Operation{func(proc *Process, l ...Object) {
+		proc.RecoverContext(l[0].(string))
 	}, 1}
 
 	//STACK
-	operations[PSH] = Operation{func(v *VM, l ...Object) {
-		v.Push(l[0])
+	operations[PSH] = Operation{func(proc *Process, l ...Object) {
+		proc.Push(l[0])
 	}, 1}
-	operations[POP] = Operation{func(v *VM, l ...Object) {
-		_, e := v.Pop()
-		if e != nil {
-			panic(e)
-		}
+	operations[POP] = Operation{func(proc *Process, l ...Object) {
+	}, 1}
+	operations[CLR] = Operation{func(proc *Process, l ...Object) {
+		proc.Clear()
 	}, 0}
-	operations[CLR] = Operation{func(v *VM, l ...Object) {
-		v.Clear()
-	}, 0}
-	operations[DUP] = Operation{func(v *VM, l ...Object) {
-		t, e := v.Pop()
-		if e != nil {
-			panic(e)
-		}
-		v.Push(t)
-		v.Push(t)
-	}, 0}
-	operations[SWT] = Operation{func(v *VM, l ...Object) {
-		a, e := v.Pop()
-		if e != nil {
-			panic(e)
-		}
-		b, e := v.Pop()
-		if e != nil {
-			panic(e)
-		}
-		v.Push(a)
-		v.Push(b)
-	}, 0}
+	operations[DUP] = Operation{func(proc *Process, l ...Object) {
+		proc.Push(l[0])
+		proc.Push(l[0])
+	}, 1}
+	operations[SWT] = Operation{func(proc *Process, l ...Object) {
+		proc.Push(l[0])
+		proc.Push(l[1])
+	}, 2}
 
 	//CONTROL
-	operations[DEF] = Operation{func(v *VM, l ...Object) {
-		v.symbols[l[0].(string)] = v.pc
-		v.pc += l[1].(int)
-	}, 2}
-	operations[CLL] = Operation{func(v *VM, l ...Object) {
-		v.callstack = append(v.callstack, v.pc)
-		v.pc = v.symbols[l[0].(string)]
+	operations[CLL] = Operation{func(proc *Process, l ...Object) {
+		proc.SavePoint()
+		proc.ChangeFragment(l[0].(string))
 	}, 1}
-	operations[JMP] = Operation{func(v *VM, l ...Object) {
-		v.pc = v.symbols[l[0].(string)]
+	operations[JMP] = Operation{func(proc *Process, l ...Object) {
+		proc.ChangeFragment(l[0].(string))
 	}, 1}
-	operations[SKT] = Operation{func(v *VM, l ...Object) {
-		if l[0].(int) != 0 {
-			v.pc++
-		}
-	}, 1}
-	operations[SKF] = Operation{func(v *VM, l ...Object) {
-		if l[0].(int) == 0 {
-			v.pc++
-		}
-	}, 1}
-	operations[RET] = Operation{func(v *VM, l ...Object) {
-		pos := v.callstack[len(v.callstack)-1]
-		v.callstack = v.callstack[:len(v.callstack)-1]
-		v.pc = pos
+	operations[RET] = Operation{func(proc *Process, l ...Object) {
+		proc.ReturnLastPoint()
 	}, 0}
-	operations[MVR] = Operation{func(v *VM, l ...Object) {
-		v.pc += l[0].(int)
+	operations[SKT] = Operation{func(proc *Process, l ...Object) {
+		if l[0].(int) != 0 {
+			proc.pc++
+		}
 	}, 1}
-	operations[MVT] = Operation{func(v *VM, l ...Object) {
+	operations[SKF] = Operation{func(proc *Process, l ...Object) {
+		if l[0].(int) == 0 {
+			proc.pc++
+		}
+	}, 1}
+	operations[MVR] = Operation{func(proc *Process, l ...Object) {
+		proc.pc += l[0].(int)
+	}, 1}
+	operations[MVT] = Operation{func(proc *Process, l ...Object) {
 		if l[1].(int) != 1 {
-			v.pc += l[0].(int)
+			proc.pc += l[0].(int)
 		}
 	}, 2}
-	operations[MVF] = Operation{func(v *VM, l ...Object) {
+	operations[MVF] = Operation{func(proc *Process, l ...Object) {
 		if l[1].(int) == 1 {
-			v.pc += l[0].(int)
+			proc.pc += l[0].(int)
 		}
 	}, 2}
+
+	//MAPS AND VECTORS
+	operations[KVC] = Operation{func(proc *Process, l ...Object) {
+		proc.Push(make(MapT))
+	}, 0}
+	operations[PRP] = Operation{func(proc *Process, l ...Object) {
+		proc.Push((l[0].(MapT))[l[1].(string)])
+	}, 2}
+	operations[ATT] = Operation{func(proc *Process, l ...Object) {
+		(l[0].(MapT))[l[1].(string)] = l[2]
+	}, 3}
+	operations[EXK] = Operation{func(proc *Process, l ...Object) {
+		if _, exists := (l[0].(MapT))[l[1].(string)]; exists {
+			proc.Push(1)
+		} else {
+			proc.Push(0)
+		}
+	}, 2}
+	operations[VEC] = Operation{func(proc *Process, l ...Object) {
+		vec := make([]Object, 0)
+		var vecref VecT = &vec
+		proc.Push(vecref)
+	}, 0}
+	operations[ACC] = Operation{func(proc *Process, l ...Object) {
+		proc.Push((*(l[0].(VecT)))[l[1].(int)])
+	}, 2}
+	operations[APP] = Operation{func(proc *Process, l ...Object) {
+		vec := l[0].(VecT)
+		*vec = append(*vec, l[1])
+	}, 2}
+	operations[SVI] = Operation{func(proc *Process, l ...Object) {
+		vec := *(l[0].(VecT))
+		vec[l[1].(int)] = l[2]
+	}, 3}
+
+	//STATE
+	operations[SWR] = Operation{func(proc *Process, l ...Object) {
+		proc.state = l[0]
+	}, 1}
+	operations[SRE] = Operation{func(proc *Process, l ...Object) {
+		proc.Push(proc.state)
+	}, 0}
+
+	//Interaction
+	operations[INV] = Operation{func(proc *Process, l ...Object) {
+		//TODO: Treat first argument as operation l[0].(Operation)
+	}, 1}
 }

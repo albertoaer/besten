@@ -26,7 +26,7 @@ type Token struct {
 
 var string_mark rune = '"'
 var decimal_mark rune = '.'
-var keywords []string = []string{"require", "import", "struct", "fn", "do", "val", "var"}
+var keywords []string = []string{"require", "import", "struct", "fn", "op", "do", "val", "var", "for", "while", "collect", "done", "throw", "catch"}
 
 func strArrContains(arr []string, elem string) bool {
 	for _, a := range arr {
@@ -81,7 +81,7 @@ func updateMask(mask TokenType, char rune) (newmask TokenType, action int8, err 
 			action = pushNoAdd
 		} else {
 			newmask = OperatorToken
-			if mask != OperatorToken {
+			if mask != OperatorToken || !unicode.IsSymbol(char) {
 				action = pushToken
 			} else {
 				action = mergeTokens

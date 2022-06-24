@@ -5,84 +5,158 @@ import (
 	"fmt"
 )
 
+type PID *Process
+
 type VM struct {
-	pc             int                 //Program counter
-	program        []Instruction       //Loaded instructions
-	context        []*Context          //Stack of context
-	symbols        map[string]int      //Addresses linked by names
-	markedcontexts map[string]*Context //Saved contexts
-	callstack      []int               //Stack of calls
-	functionstack  []Object            //Stack of function results
+	symbols     map[string]Symbol //Loaded instructions
+	rootcontext *Context          //Origin were everything is forked from
+	embedded    map[string]EmbeddedFunction
 }
 
+type Process struct {
+	machine       *VM    //The virtual machine were the process is running on
+	parent        PID    //Parent process (the one who called)
+	state         Object //Object state
+	pc            int    //Current instruction
+	fragment      Symbol
+	context       *Context   //Current context
+	functionstack []Object   //Function stack
+	done          chan error //Is Process done?
+	callstack     *CallStack
+	savedcontext  map[string]*Context
+}
+
+/*
+VM Zone
+*/
+
 func NewVM() *VM {
-	vm := &VM{0,
-		make([]Instruction, 0),
-		make([]*Context, 1),
-		make(map[string]int),
-		make(map[string]*Context),
-		make([]int, 0),
-		make([]Object, 0)}
-	vm.context[0] = NContext()
+	vm := &VM{make(map[string]Symbol), NContext(), make(map[string]EmbeddedFunction)}
 	return vm
 }
 
-/*
-Symbol zone
-*/
-func (vm *VM) LoadSymbol(symbol Symbol) {
-	vm.program = append(vm.program, symbol...)
+func (vm *VM) spawn(parent PID, fr string) PID {
+	process := &Process{vm, parent, nil, 0, vm.symbols[fr], vm.rootcontext.Open(), make([]Object, 0),
+		make(chan error), NewCallStack(), make(map[string]*Context)}
+	go process.run()
+	return process
 }
 
-func (vm *VM) LoadSymbols(symbols []Symbol) {
+func (vm *VM) Spawn(fr string) PID {
+	return vm.spawn(nil, fr)
+}
+
+func (vm *VM) Wait(process PID) error {
+	e, on := <-process.done
+	if on {
+		close(process.done)
+		return e
+	} else {
+		return errors.New("Process already closed")
+	}
+}
+
+func (vm *VM) LoadSymbol(entry Symbol) {
+	if _, e := vm.symbols[entry.Name]; e {
+		panic("Overwriting symbol")
+	}
+	vm.symbols[entry.Name] = entry
+}
+
+func (vm *VM) LoadSymbols(symbols map[string]Symbol) {
 	for _, symbol := range symbols {
-		vm.program = append(vm.program, symbol...)
+		vm.LoadSymbol(symbol)
 	}
+}
+
+func (vm *VM) Inject(embedded EmbeddedFunction) {
+	vm.embedded[embedded.Name] = embedded
+}
+
+func (vm *VM) InjectNamed(name string, embedded EmbeddedFunction) {
+	vm.embedded[name] = embedded
 }
 
 /*
-Manipulation zone
+Process Zone
 */
 
-func (vm *VM) ActiveContext() (*Context, error) {
-	if len(vm.context) > 0 {
-		return vm.context[len(vm.context)-1], nil
-	}
-	return nil, errors.New("No active context")
+func (proc *Process) Spawn(fr string) PID {
+	return proc.machine.spawn(proc, fr)
 }
 
-func (vm *VM) Get(name string) (Object, error) {
-	return vm.context[len(vm.context)-1].Get(name)
+func (proc *Process) Get(name string) (Object, error) {
+	return proc.context.Get(name)
 }
 
-func (vm *VM) Set(name string, value Object) {
-	vm.context[len(vm.context)-1].Set(name, value)
+func (proc *Process) Set(name string, value Object) {
+	proc.context.Set(name, value)
 }
 
-func (vm *VM) Open() {
-	vm.context = append(vm.context, vm.context[len(vm.context)-1].Fork())
+func (proc *Process) Open() {
+	proc.context = proc.context.Open()
 }
 
-func (vm *VM) Close() {
-	vm.context = vm.context[:len(vm.context)-1]
+func (proc *Process) Close() {
+	proc.context = proc.context.Close()
 }
 
-func (v *VM) Push(value Object) {
-	v.functionstack = append(v.functionstack, value)
+func (proc *Process) Push(value Object) {
+	proc.functionstack = append(proc.functionstack, value)
 }
 
-func (v *VM) Pop() (res Object, err error) {
-	if len(v.functionstack) > 0 {
-		res = v.functionstack[len(v.functionstack)-1]
-		v.functionstack = v.functionstack[:len(v.functionstack)-1]
+func (proc *Process) Pop() (res Object, err error) {
+	if len(proc.functionstack) > 0 {
+		res = proc.functionstack[len(proc.functionstack)-1]
+		proc.functionstack = proc.functionstack[:len(proc.functionstack)-1]
 	} else {
 		err = errors.New("Empty stack")
 	}
 	return
 }
 
-func (v *VM) Clear() {
-	v.functionstack = make([]Object, 0)
+func (proc *Process) Clear() {
+	proc.functionstack = make([]Object, 0)
+}
+
+func (proc *Process) ReturnLastPoint() {
+	point := proc.callstack.Current()
+	proc.callstack.Pop()
+	proc.context = point.context
+	proc.fragment = point.fragment
+	proc.pc = point.pc
+}
+
+func (proc *Process) SavePoint() {
+	proc.callstack.Insert(proc.pc, proc.fragment, proc.context)
+}
+
+func (proc *Process) ChangeFragment(name string) {
+	proc.fragment = proc.machine.symbols[name]
+	proc.pc = 0
+}
+
+func (proc *Process) SaveContext(name string) {
+	proc.savedcontext[name] = proc.context
+}
+
+func (proc *Process) RecoverContext(name string) {
+	proc.context = proc.savedcontext[name]
+}
+
+func (proc *Process) Invoke(name string) {
+	fn, ex := proc.machine.embedded[name]
+	if !ex {
+		panic(fmt.Sprintf("No embedded function %s to invoke", name))
+	}
+	args, err := proc.fetchArguments(uint(fn.ArgCount))
+	if err != nil {
+		panic(err)
+	}
+	r := fn.Function(args)
+	if fn.Returns {
+		proc.Push(r)
+	}
 }
 
 /*
@@ -93,14 +167,14 @@ Run zone
 Each operation has a fixed number of arguments,
 the first ones are taken from the operands, the rest from the stack
 */
-func (vm *VM) FetchArguments(num uint, operands ...Object) (args []Object, err error) {
+func (proc *Process) fetchArguments(num uint, operands ...Object) (args []Object, err error) {
 	args = operands
 	if uint(len(operands)) > num {
 		err = errors.New("Too much operands for instruction")
 	} else {
 		ref := num - uint(len(operands))
 		for ref > 0 {
-			res, e := vm.Pop()
+			res, e := proc.Pop()
 			if e != nil {
 				err = e
 				break
@@ -112,19 +186,19 @@ func (vm *VM) FetchArguments(num uint, operands ...Object) (args []Object, err e
 	return
 }
 
-func (vm *VM) RunInstruction(ins Instruction, addr int) (err error) {
+func (proc *Process) runInstruction(ins Instruction, addr int) (err error) {
 	fn, found := operations[ins.Code]
 	if !found {
 		err = errors.New("No operation matchs the instruction code provided")
 	} else {
 		defer func() {
 			if e := recover(); e != nil {
-				err = errors.New(fmt.Sprintf("[pc : %d, icode : %d] Runtime error: %v", addr, ins.Code, e))
+				err = errors.New(fmt.Sprintf("[fr: %s, pc : %d, icode : %d] Runtime error: %v", proc.fragment.Name, addr, ins.Code, e))
 			}
 		}()
-		args, e := vm.FetchArguments(fn.Operands, ins.Operands...)
+		args, e := proc.fetchArguments(fn.Operands, ins.Operands...)
 		if e == nil {
-			fn.Action(vm, args...)
+			fn.Action(proc, args...)
 		} else {
 			err = e
 		}
@@ -132,25 +206,25 @@ func (vm *VM) RunInstruction(ins Instruction, addr int) (err error) {
 	return
 }
 
-func (vm *VM) RunOne() (done bool, err error) {
-	if int(vm.pc) >= len(vm.program) {
+func (proc *Process) runOne() (done bool, err error) {
+	if int(proc.pc) >= len(proc.fragment.Source) {
 		return true, nil
 	}
-	instruction := vm.program[vm.pc]
-	vm.pc++
-	err = vm.RunInstruction(instruction, vm.pc-1)
-	done = int(vm.pc) >= len(vm.program)
+	instruction := proc.fragment.Source[proc.pc]
+	proc.pc++
+	err = proc.runInstruction(instruction, proc.pc-1)
+	done = int(proc.pc) >= len(proc.fragment.Source)
 	return
 }
 
-func (vm *VM) Run() error {
+func (proc *Process) run() {
 	for {
-		done, err := vm.RunOne()
+		done, err := proc.runOne()
 		if err != nil {
-			return err
+			proc.done <- err
 		}
 		if done {
-			return nil
+			proc.done <- nil
 		}
 	}
 }

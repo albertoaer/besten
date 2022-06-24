@@ -10,25 +10,6 @@ import (
 	. "github.com/Besten/internal/runtime"
 )
 
-type Modules struct {
-	virtuals Symbols
-}
-
-func New() *Modules {
-	return &Modules{make(Symbols, 0)}
-}
-
-func (m *Modules) Load(symbols Symbols) {
-	for k, v := range symbols {
-		m.virtuals[k] = v
-	}
-}
-
-func (_ *Modules) Native(name string) (symbols Symbols, err error) {
-	err = errors.New("Native modules not available yet")
-	return
-}
-
 func prettyTokens(blocks []Block, tabs string) {
 	for _, b := range blocks {
 		fmt.Printf(tabs+"%v\n", b.Tokens)
@@ -36,7 +17,28 @@ func prettyTokens(blocks []Block, tabs string) {
 	}
 }
 
-func (m *Modules) File(name string) (symbols Symbols, err error) {
+type Modules struct {
+	symbols map[string]Symbol
+	scope   *parser.Scope
+}
+
+func New() *Modules {
+	return &Modules{make(map[string]Symbol), parser.NewScope()}
+}
+
+func (m *Modules) Symbols() map[string]Symbol {
+	return m.symbols
+}
+
+func (m *Modules) Scope() *parser.Scope {
+	return m.scope
+}
+
+func (_ *Modules) Native(name string) (map[string]Symbol, *parser.Scope, error) {
+	return nil, parser.NewScope(), errors.New("Native modules not available yet")
+}
+
+func (m *Modules) File(name string) (symbols map[string]Symbol, scope *parser.Scope, err error) {
 	reader, err := os.Open(name)
 	if err != nil {
 		return
@@ -46,6 +48,7 @@ func (m *Modules) File(name string) (symbols Symbols, err error) {
 		return
 	}
 	prettyTokens(blocks, "")
-	module_parser := parser.NewParser(m, m.virtuals)
-	return module_parser.GetSymbols(blocks)
+	module_parser := parser.NewParser(m)
+	symbols, err = module_parser.GenerateCode(blocks)
+	return
 }

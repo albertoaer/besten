@@ -19,7 +19,7 @@ func main() {
 	if len(file) == 0 {
 		panic("No file provided")
 	}
-	_, err := modules.New().File(file)
+	_, _, err := modules.New().File(file)
 	if err != nil {
 		panic(err)
 	}

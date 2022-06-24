@@ -13,4 +13,9 @@ var (
 	VAL           = Token{Data: "val", Kind: KeywordToken}
 	VAR           = Token{Data: "var", Kind: KeywordToken}
 	ASSIGN        = Token{Data: "=", Kind: OperatorToken}
+	DOUBLES       = Token{Data: ":", Kind: OperatorToken}
+	COMA          = Token{Data: ",", Kind: OperatorToken}
+	QUOTE         = Token{Data: "'", Kind: OperatorToken}
+	POPEN         = Token{Data: "(", Kind: OperatorToken}
+	PCLOSE        = Token{Data: ")", Kind: OperatorToken}
 )
