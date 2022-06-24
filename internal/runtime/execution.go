@@ -184,6 +184,28 @@ func (proc *Process) launch() {
 	}
 }
 
+func compareInt(flags int, a int, b int) int {
+	def := 0
+	if flags&1 != 0 && a == b {
+		def |= 1
+	}
+	if flags&2 != 0 && a < b {
+		def |= 1
+	}
+	return def ^ (flags >> 2)
+}
+
+func compareFloat(flags int, a float64, b float64) int {
+	def := 0
+	if flags&1 != 0 && a == b {
+		def |= 1
+	}
+	if flags&2 != 0 && a < b {
+		def |= 1
+	}
+	return def ^ (flags >> 2)
+}
+
 func (proc *Process) run() {
 	defer func() {
 		if e := recover(); e != nil {
@@ -247,30 +269,15 @@ func (proc *Process) run() {
 			case DTI:
 				fstack.Push(int(fstack.a(ins).(float64)))
 			//COMPARISON
-			case EQI:
-				fstack.Push(boolNum(fstack.a(ins).(int) == fstack.b(ins).(int)))
-			case EQD:
-				fstack.Push(boolNum(fstack.a(ins).(float64) == fstack.b(ins).(float64)))
-			case NQI:
-				fstack.Push(boolNum(fstack.a(ins).(int) != fstack.b(ins).(int)))
-			case NQD:
-				fstack.Push(boolNum(fstack.a(ins).(float64) != fstack.b(ins).(float64)))
-			case ILE:
-				fstack.Push(boolNum(fstack.a(ins).(int) < fstack.b(ins).(int)))
-			case DLE:
-				fstack.Push(boolNum(fstack.a(ins).(float64) < fstack.b(ins).(float64)))
-			case IGR:
-				fstack.Push(boolNum(fstack.a(ins).(int) > fstack.b(ins).(int)))
-			case DGR:
-				fstack.Push(boolNum(fstack.a(ins).(float64) > fstack.b(ins).(float64)))
-			case ILQ:
-				fstack.Push(boolNum(fstack.a(ins).(int) <= fstack.b(ins).(int)))
-			case DLQ:
-				fstack.Push(boolNum(fstack.a(ins).(float64) <= fstack.b(ins).(float64)))
-			case IGQ:
-				fstack.Push(boolNum(fstack.a(ins).(int) >= fstack.b(ins).(int)))
-			case DGQ:
-				fstack.Push(boolNum(fstack.a(ins).(float64) >= fstack.b(ins).(float64)))
+			case CMPI:
+				fstack.Push(compareInt(fstack.a(ins).(int), fstack.b(ins).(int), fstack.c(ins).(int)))
+			case CMPF:
+				fstack.Push(compareFloat(fstack.a(ins).(int), fstack.b(ins).(float64), fstack.c(ins).(float64)))
+			//SHIFTS
+			case SHL:
+				fstack.Push(fstack.a(ins).(int) << fstack.b(ins).(int))
+			case SHR:
+				fstack.Push(fstack.a(ins).(int) >> fstack.b(ins).(int))
 			//LOGIC
 			case NOT:
 				fstack.Push(^fstack.a(ins).(int))
@@ -282,12 +289,6 @@ func (proc *Process) run() {
 				fstack.Push(fstack.a(ins).(int) ^ fstack.b(ins).(int))
 			case NOTB:
 				fstack.Push(1 ^ fstack.a(ins).(int))
-			case ANDB:
-				fstack.Push(fstack.a(ins).(int) & fstack.b(ins).(int))
-			case ORB:
-				fstack.Push(fstack.a(ins).(int) | fstack.b(ins).(int))
-			case XORB:
-				fstack.Push(fstack.a(ins).(int) ^ fstack.b(ins).(int))
 			}
 		case code < 128:
 			switch code {

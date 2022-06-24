@@ -24,18 +24,8 @@ const (
 
 	//COMPARISON
 
-	EQI = 30 //equal ints
-	EQD = 31 //equal doubles
-	NQI = 33 //equal ints
-	NQD = 34 //equal doubles
-	ILE = 36 //int less
-	DLE = 37 //double less
-	IGR = 38 //int greater
-	DGR = 39 //double greater
-	ILQ = 40 //int less equals
-	DLQ = 41 //double less equals
-	IGQ = 42 //int greater equals
-	DGQ = 43 //double greater equals
+	CMPI = 30 //compare
+	CMPF = 31 //compare
 
 	//LOGIC
 
@@ -43,10 +33,12 @@ const (
 	AND  = 51 //logic and
 	OR   = 52 //logic or
 	XOR  = 53 //logic xor
-	NOTB = 54 //logic not boolean
-	ANDB = 55 //logic and boolean
-	ORB  = 56 //logic or boolean
-	XORB = 57 //logic xor boolean
+	NOTB = 54 //logic not boolean, avoid negate number
+
+	//SHIFTS
+
+	SHL = 60 //Shift left
+	SHR = 61 //Shift right
 
 	//MEMORY
 

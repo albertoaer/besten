@@ -13,7 +13,7 @@ func mathOpInstruction(int_, float_ ICode) []*FunctionSymbol {
 		{"none", false, MKInstruction(float_).Fragment(), &Dec, []OBJType{Dec, Dec}}}
 }
 
-func multiTypeInstruction(length int, returntype OBJType, matches map[OBJType]ICode) []*FunctionSymbol {
+func multiTypeInstruction(length int, returntype OBJType, matches map[OBJType]Instruction) []*FunctionSymbol {
 	ret := make([]*FunctionSymbol, 0)
 	for k, v := range matches {
 		tp := make([]OBJType, length)
@@ -23,7 +23,7 @@ func multiTypeInstruction(length int, returntype OBJType, matches map[OBJType]IC
 		ret = append(ret, &FunctionSymbol{
 			"none",
 			false,
-			MKInstruction(v).Fragment(),
+			v.Fragment(),
 			&returntype,
 			tp,
 		})
@@ -31,12 +31,20 @@ func multiTypeInstruction(length int, returntype OBJType, matches map[OBJType]IC
 	return ret
 }
 
-func wrapOpInstruction(code ICode, tp OBJType, unary bool) []*FunctionSymbol {
+func comparisonInstruction(flags int, matches map[OBJType]ICode) []*FunctionSymbol {
+	nmatch := make(map[OBJType]Instruction)
+	for k, v := range matches {
+		nmatch[k] = MKInstruction(v, flags)
+	}
+	return multiTypeInstruction(2, Bool, nmatch)
+}
+
+func wrapOpInstruction(code ICode, tp OBJType, unary bool) *FunctionSymbol {
 	tps := []OBJType{tp, tp}
 	if unary {
 		tps = []OBJType{tp}
 	}
-	return []*FunctionSymbol{{"none", false, MKInstruction(code).Fragment(), &tp, tps}}
+	return &FunctionSymbol{"none", false, MKInstruction(code).Fragment(), &tp, tps}
 }
 
 func injectBuiltinFunctions(to *FunctionCollection) {
@@ -104,7 +112,7 @@ func injectBuiltinFunctions(to *FunctionCollection) {
 		},
 		Returns: true,
 	}).Fragment(), CloneType(Str), []OBJType{VecOf(Int)}})
-	to.AddSymbols("len", multiTypeInstruction(1, Int, map[OBJType]ICode{Str: SOS, MapOf(Any): SOM, VecOf(Any): SOV}))
+	to.AddSymbols("len", multiTypeInstruction(1, Int, map[OBJType]Instruction{Str: MKInstruction(SOS), MapOf(Any): MKInstruction(SOM), VecOf(Any): MKInstruction(SOV)}))
 	to.AddDynamicSymbol("vec", func(o []OBJType) *FunctionSymbol {
 		if len(o) > 0 {
 			ret := VecOf(o[0])
@@ -181,21 +189,23 @@ func injectBuiltinOperators(to *FunctionCollection) {
 	to.AddSymbol("-", &FunctionSymbol{"none", false, MKInstruction(SUBF, 0).Fragment(), CloneType(Dec), []OBJType{Dec}})
 	to.AddSymbols("*", mathOpInstruction(MUL, MULF))
 	to.AddSymbols("/", mathOpInstruction(DIV, DIVF))
-	to.AddSymbols("%", wrapOpInstruction(MOD, Int, false))
-	to.AddSymbols("!", wrapOpInstruction(NOT, Int, true))
-	to.AddSymbols("&", wrapOpInstruction(AND, Int, false))
-	to.AddSymbols("|", wrapOpInstruction(OR, Int, false))
-	to.AddSymbols("^", wrapOpInstruction(XOR, Int, false))
-	to.AddSymbols("!", wrapOpInstruction(NOTB, Bool, true))
-	to.AddSymbols("&&", wrapOpInstruction(ANDB, Bool, false))
-	to.AddSymbols("||", wrapOpInstruction(ORB, Bool, false))
-	to.AddSymbols("^^", wrapOpInstruction(XORB, Bool, false))
-	to.AddSymbols("==", multiTypeInstruction(2, Bool, map[OBJType]ICode{Int: EQI, Dec: EQD, Bool: EQI}))
-	to.AddSymbols("!=", multiTypeInstruction(2, Bool, map[OBJType]ICode{Int: NQI, Dec: NQD, Bool: NQI}))
-	to.AddSymbols("<", multiTypeInstruction(2, Bool, map[OBJType]ICode{Int: ILE, Dec: DLE}))
-	to.AddSymbols(">", multiTypeInstruction(2, Bool, map[OBJType]ICode{Int: IGR, Dec: DGR}))
-	to.AddSymbols("<=", multiTypeInstruction(2, Bool, map[OBJType]ICode{Int: ILQ, Dec: DLQ}))
-	to.AddSymbols(">=", multiTypeInstruction(2, Bool, map[OBJType]ICode{Int: IGQ, Dec: DGQ}))
+	to.AddSymbol("<<", wrapOpInstruction(SHL, Int, false))
+	to.AddSymbol(">>", wrapOpInstruction(SHR, Int, false))
+	to.AddSymbol("%", wrapOpInstruction(MOD, Int, false))
+	to.AddSymbol("!", wrapOpInstruction(NOT, Int, true))
+	to.AddSymbol("&", wrapOpInstruction(AND, Int, false))
+	to.AddSymbol("|", wrapOpInstruction(OR, Int, false))
+	to.AddSymbol("^", wrapOpInstruction(XOR, Int, false))
+	to.AddSymbol("!", wrapOpInstruction(NOTB, Bool, true))
+	to.AddSymbol("&&", wrapOpInstruction(AND, Bool, false))
+	to.AddSymbol("||", wrapOpInstruction(OR, Bool, false))
+	to.AddSymbol("^^", wrapOpInstruction(XOR, Bool, false))
+	to.AddSymbols("==", comparisonInstruction(1, map[OBJType]ICode{Int: CMPI, Dec: CMPF, Bool: CMPI}))
+	to.AddSymbols("!=", comparisonInstruction(5, map[OBJType]ICode{Int: CMPI, Dec: CMPF, Bool: CMPI}))
+	to.AddSymbols("<", comparisonInstruction(2, map[OBJType]ICode{Int: CMPI, Dec: CMPF}))
+	to.AddSymbols(">", comparisonInstruction(7, map[OBJType]ICode{Int: CMPI, Dec: CMPF}))
+	to.AddSymbols("<=", comparisonInstruction(3, map[OBJType]ICode{Int: CMPI, Dec: CMPF}))
+	to.AddSymbols(">=", comparisonInstruction(6, map[OBJType]ICode{Int: CMPI, Dec: CMPF}))
 	to.AddDynamicSymbol("[]", func(o []OBJType) *FunctionSymbol {
 		if len(o) == 2 {
 			var ins []Instruction
