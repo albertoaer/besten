@@ -495,6 +495,123 @@ func (p *Parser) parseLoopJump(block Block, skip bool) error {
 	return nil
 }
 
+func (p *Parser) parseDrop(block Block) error {
+	tks := discardOne(block.Tokens)
+	t, tks, err := expectT(tks, KeywordToken)
+	if err != nil {
+		return err
+	}
+	var fc *FunctionCollection
+	var fname Token
+	if t.Data == "fn" {
+		fc = p.currentScope().Functions
+		fname, tks, err = expectT(tks, IdToken)
+	} else if t.Data == "op" {
+		fc = p.currentScope().Operators
+		fname, tks, err = expectT(tks, OperatorToken)
+	} else {
+		return errors.New(fmt.Sprintf("Unexpected keyword: %s", t.Data))
+	}
+	if err != nil {
+		return err
+	}
+	if !isNext(tks) || next(tks, DOUBLES) {
+		if next(tks, DOUBLES) && isNext(discardOne(tks)) {
+			var numt Token
+			numt, tks, err = expectT(discardOne(tks), IntegerToken)
+			if err != nil {
+				return err
+			}
+			n, err := strconv.Atoi(numt.Data)
+			if err != nil {
+				return err
+			}
+			if n < 0 {
+				return errors.New("Negative number of arguments")
+			}
+			if t.Data == "op" && (n < 1 || n > 2) {
+				return errors.New("Operator must be unary or binary")
+			}
+			fc.DropTemplate(fname.Data, n)
+			fc.DropSymbol(fname.Data, n)
+		} else {
+			fc.DropAllTemplatesOf(fname.Data)
+			fc.DropAllSymbolOf(fname.Data)
+		}
+	}
+	return unexpect(tks)
+}
+
+func (p *Parser) parseAlias(block Block) error {
+	tks := discardOne(block.Tokens)
+	t, tks, err := expectT(tks, KeywordToken)
+	if err != nil {
+		return err
+	}
+	var srcfc *FunctionCollection
+	var srcname Token
+	if t.Data == "fn" {
+		srcfc = p.currentScope().Functions
+		srcname, tks, err = expectT(tks, IdToken)
+	} else if t.Data == "op" {
+		srcfc = p.currentScope().Operators
+		srcname, tks, err = expectT(tks, OperatorToken)
+	} else {
+		return errors.New(fmt.Sprintf("Unexpected keyword: %s", t.Data))
+	}
+	if err != nil {
+		return err
+	}
+	args := -1
+	if next(tks, DOUBLES) {
+		tks = discardOne(tks)
+		if nextT(tks, IntegerToken) {
+			var numt Token
+			numt, tks, err = expectT(tks, IntegerToken)
+			if err != nil {
+				return err
+			}
+			n, err := strconv.Atoi(numt.Data)
+			if err != nil {
+				return err
+			}
+			if n < 0 {
+				return errors.New("Negative number of arguments")
+			}
+			args = n
+		}
+	}
+	t2, tks, err := expectT(tks, KeywordToken)
+	if err != nil {
+		return err
+	}
+	var dstfc *FunctionCollection
+	var dstname Token
+	if t2.Data == "fn" {
+		dstfc = p.currentScope().Functions
+		dstname, tks, err = expectT(tks, IdToken)
+	} else if t2.Data == "op" {
+		dstfc = p.currentScope().Operators
+		dstname, tks, err = expectT(tks, OperatorToken)
+	} else {
+		return errors.New(fmt.Sprintf("Unexpected keyword: %s", t2.Data))
+	}
+	if err != nil {
+		return err
+	}
+	if (args == 0 || args > 2) && (t.Data == "op" || t2.Data == "op") {
+		return errors.New("Operator must be unary or binary")
+	}
+	if args < 0 {
+		srcfc.CopyAllTemplatesOf(srcname.Data, dstname.Data, dstfc)
+		srcfc.CopyAllSymbolsOf(srcname.Data, dstname.Data, dstfc)
+	} else {
+		srcfc.CopyTemplate(srcname.Data, args, dstname.Data, dstfc)
+		srcfc.CopySymbol(srcname.Data, args, dstname.Data, dstfc)
+	}
+	return unexpect(tks)
+}
+
 func (p *Parser) parseByKeyword(name string, block Block, scp ScopeCtx) error {
 	if scp == Global {
 		switch name {
@@ -502,6 +619,12 @@ func (p *Parser) parseByKeyword(name string, block Block, scp ScopeCtx) error {
 			return p.loadModuleAux(block.Tokens, p.env.Native)
 		case "import":
 			return p.loadModuleAux(block.Tokens, p.env.File)
+		case "fn", "op":
+			return p.parseFunction(block, name == "op")
+		case "drop":
+			return p.parseDrop(block)
+		case "alias":
+			return p.parseAlias(block)
 		}
 	}
 	if scp == Function || scp == Loop {
@@ -536,8 +659,6 @@ func (p *Parser) parseByKeyword(name string, block Block, scp ScopeCtx) error {
 		}
 	}
 	switch name {
-	case "fn", "op":
-		return p.parseFunction(block, name == "op")
 	case "omit":
 		return nil //The block is omitted
 	}

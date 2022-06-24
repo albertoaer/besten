@@ -121,6 +121,44 @@ func (collection *FunctionCollection) FindTemplate(name string, args int) *Funct
 	return nil
 }
 
+func (collection *FunctionCollection) DropAllTemplatesOf(name string) {
+	if _, e := collection.templates[name]; e {
+		delete(collection.templates, name)
+	}
+}
+
+func (collection *FunctionCollection) DropTemplate(name string, args int) {
+	v, e := collection.templates[name]
+	if e {
+		if _, e := v.fixedargs[args]; e {
+			delete(v.fixedargs, args)
+		}
+	}
+}
+
+func (collection *FunctionCollection) CopyAllTemplatesOf(name string, nname string, other *FunctionCollection) {
+	if v, e := collection.templates[name]; e {
+		for _, v := range v.fixedargs {
+			other.AddTemplate(nname, v)
+		}
+		if v.variadic != nil {
+			other.AddTemplate(nname, *v.variadic)
+		}
+	}
+}
+
+func (collection *FunctionCollection) CopyTemplate(name string, args int, nname string, other *FunctionCollection) {
+	v, e := collection.templates[name]
+	if e {
+		if v, e := v.fixedargs[args]; e {
+			other.AddTemplate(nname, v)
+		}
+		if v.variadic != nil && args >= len(v.variadic.Args) {
+			other.AddTemplate(nname, *v.variadic)
+		}
+	}
+}
+
 //Creates a function container for a name in case it does not exists
 func (collection *FunctionCollection) SaveSymbolHolder(name string) {
 	if _, e := collection.functions[name]; !e {
@@ -162,23 +200,12 @@ func (collection *FunctionCollection) AddDynamicSymbol(name string, dsym Dynamic
 	return nil
 }
 
-/*
-Adds an array of non-variadic functions into de collection associated with a name
-NOT VALID FOR VARIADIC
-length will be taken from the first symbol
-*/
 func (collection *FunctionCollection) AddSymbols(name string, functions []*FunctionSymbol) error {
-	if functions == nil || len(functions) == 0 {
-		return errors.New(fmt.Sprintf("Symbol %s :: Symbol array with length 0", name))
+	for _, f := range functions {
+		if e := collection.AddSymbol(name, f); e != nil {
+			return e
+		}
 	}
-	v, e := collection.functions[name]
-	if !e {
-		v = &NamedFunctionContainer{nil, make(map[int][]*FunctionSymbol), make([]*FunctionSymbol, 0), -1}
-		collection.functions[name] = v
-	}
-	fns := v.fixedargs[len(functions[0].Args)]
-	fns = append(fns, functions...)
-	v.fixedargs[len(functions[0].Args)] = fns
 	return nil
 }
 
@@ -204,4 +231,46 @@ func (collection *FunctionCollection) FindSymbol(name string, args int) []*Funct
 		vec = append(vec, v.variadic...)
 	}
 	return vec
+}
+
+func (collection *FunctionCollection) DropAllSymbolOf(name string) {
+	if _, e := collection.functions[name]; e {
+		delete(collection.functions, name)
+	}
+}
+
+func (collection *FunctionCollection) DropSymbol(name string, args int) {
+	if v, e := collection.functions[name]; e {
+		if _, e = v.fixedargs[args]; e {
+			delete(v.fixedargs, args)
+		}
+		if args >= v.minvariadicargs {
+			v.variadic = make([]*FunctionSymbol, 0)
+		}
+	}
+}
+
+func (collection *FunctionCollection) CopyAllSymbolsOf(name string, nname string, other *FunctionCollection) {
+	if v, e := collection.functions[name]; e {
+		for _, v := range v.fixedargs {
+			other.AddSymbols(nname, v)
+		}
+		if len(v.variadic) > 0 {
+			other.AddSymbols(nname, v.variadic)
+		}
+		if v.dynamic != nil {
+			other.AddDynamicSymbol(nname, v.dynamic)
+		}
+	}
+}
+
+func (collection *FunctionCollection) CopySymbol(name string, args int, nname string, other *FunctionCollection) {
+	if v, e := collection.functions[name]; e {
+		if v, e := v.fixedargs[args]; e {
+			other.AddSymbols(nname, v)
+		}
+		if len(v.variadic) > 0 && args >= v.minvariadicargs {
+			other.AddSymbols(nname, v.variadic)
+		}
+	}
 }
