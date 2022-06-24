@@ -6,16 +6,19 @@ import (
 )
 
 type Block struct {
+	Begin    int
+	End      int
 	Tokens   []Token
 	Children []Block
 	Parent   *Block
 }
 
-func getChilds(blks []dirtyBlock) (line []Token, sub bool, children []dirtyBlock, err error) {
+func getChilds(blks []dirtyBlock) (line []Token, sub bool, children []dirtyBlock, lline int, err error) {
 	sub = false
 	for i := range blks {
 		//Read and append the token to the main line
 		tk, s, e := GetTokens(blks[i].raw)
+		lline = blks[i].line
 		if e != nil {
 			err = e
 			return
@@ -45,6 +48,8 @@ func getChilds(blks []dirtyBlock) (line []Token, sub bool, children []dirtyBlock
 func solveBlock(raw dirtyBlock, parent *Block) (block Block, err error) {
 	//sublevel: Indicates that any subline is in a sublevel, otherwise sublines would be treat like the same line
 	tks, sublevel, err := GetTokens(raw.raw)
+	begin := raw.line
+	end := raw.line
 	if err != nil {
 		return
 	}
@@ -52,7 +57,10 @@ func solveBlock(raw dirtyBlock, parent *Block) (block Block, err error) {
 	//Multiline and pick children
 	target_children := raw.children
 	if !sublevel && len(raw.children) > 0 {
-		l, sub, target, e := getChilds(target_children)
+		l, sub, target, nline, e := getChilds(target_children)
+		if nline > end {
+			end = nline
+		}
 		if e != nil {
 			err = e
 			return
@@ -71,6 +79,8 @@ func solveBlock(raw dirtyBlock, parent *Block) (block Block, err error) {
 	if err != nil {
 		return
 	}
+	block.Begin = begin
+	block.End = end
 	block.Parent = parent
 	block.Tokens = tks
 	block.Children = childs

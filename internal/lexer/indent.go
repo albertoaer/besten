@@ -8,6 +8,7 @@ import (
 )
 
 type dirtyBlock struct {
+	line     int
 	raw      string
 	children []dirtyBlock
 	parent   *dirtyBlock
@@ -38,14 +39,16 @@ func indentSolver(arr []string, indent string) (remain string, relative int, err
 func getRawStructure(src io.Reader) (blocks []dirtyBlock, err error) {
 	reader := bufio.NewReader(src)
 	line := ""
+	linenum := 0
 	var indent_array []string
 
-	active := &dirtyBlock{"", blocks, nil}
+	active := &dirtyBlock{-1, "", blocks, nil}
 	root := active
 
 	for {
 		//Solve raw line
 		buffer, notended, e := reader.ReadLine()
+		linenum++
 		if e != nil {
 			if buffer != nil {
 				err = e
@@ -93,7 +96,7 @@ func getRawStructure(src io.Reader) (blocks []dirtyBlock, err error) {
 			}
 			active = &active.children[len(active.children)-1]
 		}
-		active.children = append(active.children, dirtyBlock{noindent, make([]dirtyBlock, 0), active})
+		active.children = append(active.children, dirtyBlock{linenum, noindent, make([]dirtyBlock, 0), active})
 	}
 	blocks = root.children
 	return

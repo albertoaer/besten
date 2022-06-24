@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 
 	. "github.com/Besten/internal/lexer"
 	. "github.com/Besten/internal/runtime"
@@ -405,6 +406,14 @@ func (p *Parser) parseBlock(block Block, scp ScopeCtx) error {
 func (p *Parser) parseBlocks(blocks []Block, scp ScopeCtx) error {
 	for _, block := range blocks {
 		if e := p.parseBlock(block, scp); e != nil {
+			strerr := e.Error()
+			if !strings.ContainsRune(strerr, '\n') {
+				lineid := strconv.Itoa(block.Begin)
+				if block.Begin != block.End {
+					lineid = lineid + ".." + strconv.Itoa(block.End)
+				}
+				return errors.New(fmt.Sprintf("[Error in line (%s)]\n\t%s", lineid, strerr))
+			}
 			return e
 		}
 	}
