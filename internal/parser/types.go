@@ -106,9 +106,9 @@ type Literal struct {
 var (
 	Void OBJType = &Literal{VOID, "Void"}
 	Int  OBJType = &Literal{INTEGER, "Int"}
-	Dec  OBJType = &Literal{DECIMAL, "Decimal"}
-	Bool OBJType = &Literal{BOOL, "Boolean"}
-	Str  OBJType = &Literal{STRING, "String"}
+	Dec  OBJType = &Literal{DECIMAL, "Dec"}
+	Bool OBJType = &Literal{BOOL, "Bool"}
+	Str  OBJType = &Literal{STRING, "Str"}
 	Any  OBJType = &Literal{ANY, "Any"}
 )
 
@@ -139,7 +139,7 @@ type Container struct {
 }
 
 func VecOf(t OBJType) OBJType {
-	return &Container{VECTOR, t, "Vector"}
+	return &Container{VECTOR, t, "Vec"}
 }
 
 func MapOf(t OBJType) OBJType {

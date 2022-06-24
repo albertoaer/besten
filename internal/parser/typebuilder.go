@@ -57,13 +57,13 @@ func isTypeLiteral(tk Token) OBJType {
 		return nil
 	}
 	switch tk.Data {
-	case "Int":
+	case Int.TypeName():
 		return Int
-	case "Double":
+	case Dec.TypeName():
 		return Dec
-	case "Bool":
+	case Bool.TypeName():
 		return Bool
-	case "Str":
+	case Str.TypeName():
 		return Str
 		/*case Any.TypeName(): //Any type may generate undefined behaviour
 		return Any*/
