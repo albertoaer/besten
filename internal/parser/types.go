@@ -121,7 +121,8 @@ func checkCompatibility(from, to OBJType) bool {
 			return CompareTypes(TupleOf(a), from)
 		}
 		if from.Primitive() == STRUCT {
-			return CompareArrayOfTypes(a, from.(*Structure).ItemTypes)
+			b := from.(*Structure).ItemTypes
+			return len(b) >= len(a) && CompareArrayOfTypes(a, b[:len(a)])
 		}
 	}
 	return false

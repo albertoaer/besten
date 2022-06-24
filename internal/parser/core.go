@@ -748,17 +748,43 @@ func (p *Parser) parseStruct(block Block) error {
 	tps, err := splitByToken(tks, func(tk Token) bool { return tk == COMA }, genericPairs, false, false, false)
 	indexer := make(map[string]int)
 	tuple := make([]OBJType, 0)
-	for i, tk := range tps {
-		var t Token
-		if t, tk, err = expectT(tk, IdToken); err != nil {
-			return err
+	count := 0
+	for _, tk := range tps {
+		var expand bool
+		var name string
+		if expand = next(tk, IN); expand {
+			tk = discardOne(tk)
+		} else {
+			var t Token
+			if t, tk, err = expectT(tk, IdToken); err != nil {
+				return err
+			}
+			name = t.Data
 		}
 		var tp OBJType
 		if tp, err = solveContextedTypeFromTokens(tk, p, true); err != nil {
 			return err
 		}
-		indexer[t.Data] = i
-		tuple = append(tuple, tp)
+		if expand {
+			if tp.Primitive() != STRUCT {
+				return errors.New("Field expanding is only available for structs")
+			}
+			for name, idx := range tp.NamedItems() {
+				if _, e := indexer[name]; e {
+					return errors.New(fmt.Sprintf("Field %s already exists", name))
+				}
+				indexer[name] = count + idx
+			}
+			tuple = append(tuple, tp.FixedItems()...)
+			count += len(tp.FixedItems())
+		} else {
+			if _, e := indexer[name]; e {
+				return errors.New(fmt.Sprintf("Field %s already exists", name))
+			}
+			indexer[name] = count
+			tuple = append(tuple, tp)
+			count++
+		}
 	}
 	if len(tuple) == 0 {
 		return errors.New("Expecting at least one field")
