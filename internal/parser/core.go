@@ -215,12 +215,10 @@ func (p *Parser) parseIf(block Block) error {
 	editpoint := p.addInstruction(MKInstruction(MVF))
 	begin := p.fragmentSize()
 	p.openScope()
-	p.addInstruction(MKInstruction(OPN))
 	e = p.parseBlocks(block.Children, Function)
 	if e != nil {
 		return e
 	}
-	p.addInstruction(MKInstruction(CLS))
 	p.closeScope()
 	end := p.fragmentSize()
 	p.editInstruction(editpoint, MKInstruction(MVF, end-begin))
@@ -248,12 +246,10 @@ func (p *Parser) parseWhile(block Block) error {
 	editpoint := p.addInstruction(MKInstruction(MVF))
 	begin := p.fragmentSize()
 	p.openScope()
-	p.addInstruction(MKInstruction(OPN))
 	e = p.parseBlocks(block.Children, Function)
 	if e != nil {
 		return e
 	}
-	p.addInstruction(MKInstruction(CLS))
 	p.closeScope()
 	end := p.fragmentSize()
 	p.addInstruction(MKInstruction(MVR, whilestart-end-1))

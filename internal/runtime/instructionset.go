@@ -33,9 +33,9 @@ const (
 
 	//COMPARISON
 
-	EQI = 30
-	EQD = 31
-	EQS = 32
+	EQI = 30 //equal ints
+	EQD = 31 //equal doubles
+	EQS = 32 //equal strings
 	ILE = 33 //int less
 	DLE = 34 //double less
 	IGR = 35 //int greater
@@ -47,26 +47,24 @@ const (
 
 	//LOGIC
 
-	NOT = 50
-	AND = 51
-	OR  = 52
-	XOR = 53
+	NOT = 50 //logic not
+	AND = 51 //logic and
+	OR  = 52 //logic or
+	XOR = 53 //logic xor
 
 	//STRINGS
 
 	CCS = 60 //Concatenate strings
 	CAI = 61 //Char at index
 
-	//Context
+	//MEMORY
 
-	OPN = 80 //Creates context at the top, forking the upper one
-	CLS = 81 //Closes context
-	GET = 82 //Gets variable from context
-	SET = 83 //Sets variable into context
-	SCC = 84 //Saves current context
-	RSC = 85 //Recover saved context
+	LEI = 70 //Load environment item
+	SEI = 71 //Save environment item
+	LLI = 72 //Load local item
+	SLI = 73 //Save local item
 
-	//Stack
+	//STACK
 
 	PSH = 90 //Push top
 	POP = 91 //Pop top
@@ -116,6 +114,8 @@ const (
 	INV = 280 //Invokes native function
 	SYS = 281 //Invokes a system call
 	IFD = 282 //Invocation for debugging, run directly methods, NOT SAFE!
+
+	LDOP = 300 //Last defined operation, just a mark
 )
 
 type Operation struct {
@@ -123,74 +123,76 @@ type Operation struct {
 	Operands uint
 }
 
-var operations map[ICode]Operation
+var operations []Operation
 
 func (proc *Process) logicPush(val bool) {
 	if val {
-		proc.Push(1)
+		proc.functionstack.Push(1)
 	} else {
-		proc.Push(0)
+		proc.functionstack.Push(0)
 	}
 }
 
 func init() {
-	operations = make(map[ICode]Operation)
+	operations = make([]Operation, LDOP)
+
+	operations[NOP] = Operation{func(proc *Process, l ...Object) {}, 0}
 
 	//ARITHMETIC
 	operations[ADD] = Operation{func(proc *Process, l ...Object) {
-		proc.Push(l[0].(int) + l[1].(int))
+		proc.functionstack.Push(l[0].(int) + l[1].(int))
 	}, 2}
 	operations[SUB] = Operation{func(proc *Process, l ...Object) {
-		proc.Push(l[0].(int) - l[1].(int))
+		proc.functionstack.Push(l[0].(int) - l[1].(int))
 	}, 2}
 	operations[MUL] = Operation{func(proc *Process, l ...Object) {
-		proc.Push(l[0].(int) * l[1].(int))
+		proc.functionstack.Push(l[0].(int) * l[1].(int))
 	}, 2}
 	operations[DIV] = Operation{func(proc *Process, l ...Object) {
-		proc.Push(l[0].(int) / l[1].(int))
+		proc.functionstack.Push(l[0].(int) / l[1].(int))
 	}, 2}
 	operations[MOD] = Operation{func(proc *Process, l ...Object) {
-		proc.Push(l[0].(int) % l[1].(int))
+		proc.functionstack.Push(l[0].(int) % l[1].(int))
 	}, 2}
 	operations[ADDF] = Operation{func(proc *Process, l ...Object) {
-		proc.Push(l[0].(float64) + l[1].(float64))
+		proc.functionstack.Push(l[0].(float64) + l[1].(float64))
 	}, 2}
 	operations[SUBF] = Operation{func(proc *Process, l ...Object) {
-		proc.Push(l[0].(float64) - l[1].(float64))
+		proc.functionstack.Push(l[0].(float64) - l[1].(float64))
 	}, 2}
 	operations[MULF] = Operation{func(proc *Process, l ...Object) {
-		proc.Push(l[0].(float64) * l[1].(float64))
+		proc.functionstack.Push(l[0].(float64) * l[1].(float64))
 	}, 2}
 	operations[DIVF] = Operation{func(proc *Process, l ...Object) {
-		proc.Push(l[0].(float64) / l[1].(float64))
+		proc.functionstack.Push(l[0].(float64) / l[1].(float64))
 	}, 2}
 
 	//CONVERSION
 	operations[ITD] = Operation{func(proc *Process, l ...Object) {
-		proc.Push(float64(l[0].(int)))
+		proc.functionstack.Push(float64(l[0].(int)))
 	}, 1}
 	operations[DTI] = Operation{func(proc *Process, l ...Object) {
-		proc.Push(int(l[0].(float64)))
+		proc.functionstack.Push(int(l[0].(float64)))
 	}, 1}
 	operations[IRE] = Operation{func(proc *Process, l ...Object) {
-		proc.Push(strconv.Itoa(l[0].(int)))
+		proc.functionstack.Push(strconv.Itoa(l[0].(int)))
 	}, 1}
 	operations[DRE] = Operation{func(proc *Process, l ...Object) {
-		proc.Push(fmt.Sprintf("%g", l[0].(float64)))
+		proc.functionstack.Push(fmt.Sprintf("%g", l[0].(float64)))
 	}, 1}
 	operations[IPA] = Operation{func(proc *Process, l ...Object) {
 		i, e := strconv.Atoi(l[0].(string))
 		if e != nil {
 			panic(e)
 		}
-		proc.Push(i)
+		proc.functionstack.Push(i)
 	}, 1}
 	operations[DPA] = Operation{func(proc *Process, l ...Object) {
 		f, e := strconv.ParseFloat(l[0].(string), 64)
 		if e != nil {
 			panic(e)
 		}
-		proc.Push(f)
+		proc.functionstack.Push(f)
 	}, 1}
 
 	//COMPARISON
@@ -230,67 +232,57 @@ func init() {
 
 	//LOGIC
 	operations[NOT] = Operation{func(proc *Process, l ...Object) {
-		proc.Push(^l[0].(int))
+		proc.functionstack.Push(^l[0].(int))
 	}, 1}
 	operations[AND] = Operation{func(proc *Process, l ...Object) {
-		proc.Push(l[0].(int) & l[1].(int))
+		proc.functionstack.Push(l[0].(int) & l[1].(int))
 	}, 2}
 	operations[OR] = Operation{func(proc *Process, l ...Object) {
-		proc.Push(l[0].(int) | l[1].(int))
+		proc.functionstack.Push(l[0].(int) | l[1].(int))
 	}, 2}
 	operations[XOR] = Operation{func(proc *Process, l ...Object) {
-		proc.Push(l[0].(int) ^ l[1].(int))
+		proc.functionstack.Push(l[0].(int) ^ l[1].(int))
 	}, 2}
 
 	//STRINGS
 	operations[CCS] = Operation{func(proc *Process, l ...Object) {
-		proc.Push(l[0].(string) + l[1].(string))
+		proc.functionstack.Push(l[0].(string) + l[1].(string))
 	}, 2}
 	operations[CAI] = Operation{func(proc *Process, l ...Object) {
-		proc.Push(l[0].(string)[l[1].(int)])
+		proc.functionstack.Push(l[0].(string)[l[1].(int)])
 	}, 2}
 
-	//CONTEXT
-	operations[OPN] = Operation{func(proc *Process, l ...Object) {
-		proc.Open()
-	}, 0}
-	operations[CLS] = Operation{func(proc *Process, l ...Object) {
-		proc.Close()
-	}, 0}
-	operations[GET] = Operation{func(proc *Process, l ...Object) {
-		t, e := proc.Get(l[0].(string))
-		if e != nil {
-			panic(e)
-		}
-		proc.Push(t)
+	//MEMORY
+	operations[LEI] = Operation{func(proc *Process, l ...Object) {
+		proc.functionstack.Push(proc.items.GetEnvironment(l[0].(int)))
 	}, 1}
-	operations[SET] = Operation{func(proc *Process, l ...Object) {
-		proc.Set(l[0].(string), l[1])
+	operations[SEI] = Operation{func(proc *Process, l ...Object) {
+		proc.items.SetEnvironment(l[0].(int), l[1])
 	}, 2}
-	operations[SCC] = Operation{func(proc *Process, l ...Object) {
-		proc.SaveContext(l[0].(string))
+	operations[LLI] = Operation{func(proc *Process, l ...Object) {
+		proc.functionstack.Push(proc.items.GetLocal(l[0].(int)))
 	}, 1}
-	operations[RSC] = Operation{func(proc *Process, l ...Object) {
-		proc.RecoverContext(l[0].(string))
-	}, 1}
+	operations[SLI] = Operation{func(proc *Process, l ...Object) {
+		proc.items.SetLocal(l[0].(int), l[1])
+	}, 2}
 
 	//STACK
 	operations[PSH] = Operation{func(proc *Process, l ...Object) {
-		proc.Push(l[0])
+		proc.functionstack.Push(l[0])
 	}, 1}
 	operations[POP] = Operation{func(proc *Process, l ...Object) {
 		//Just consumes the value
 	}, 1}
 	operations[CLR] = Operation{func(proc *Process, l ...Object) {
-		proc.Clear()
+		proc.functionstack.Clear()
 	}, 0}
 	operations[DUP] = Operation{func(proc *Process, l ...Object) {
-		proc.Push(l[0])
-		proc.Push(l[0])
+		proc.functionstack.Push(l[0])
+		proc.functionstack.Push(l[0])
 	}, 1}
 	operations[SWT] = Operation{func(proc *Process, l ...Object) {
-		proc.Push(l[0])
-		proc.Push(l[1])
+		proc.functionstack.Push(l[0])
+		proc.functionstack.Push(l[1])
 	}, 2}
 
 	//CONTROL
@@ -330,28 +322,28 @@ func init() {
 
 	//MAPS AND VECTORS
 	operations[KVC] = Operation{func(proc *Process, l ...Object) {
-		proc.Push(make(MapT))
+		proc.functionstack.Push(make(MapT))
 	}, 0}
 	operations[PRP] = Operation{func(proc *Process, l ...Object) {
-		proc.Push((l[0].(MapT))[l[1].(string)])
+		proc.functionstack.Push((l[0].(MapT))[l[1].(string)])
 	}, 2}
 	operations[ATT] = Operation{func(proc *Process, l ...Object) {
 		(l[0].(MapT))[l[1].(string)] = l[2]
 	}, 3}
 	operations[EXK] = Operation{func(proc *Process, l ...Object) {
 		if _, exists := (l[0].(MapT))[l[1].(string)]; exists {
-			proc.Push(1)
+			proc.functionstack.Push(1)
 		} else {
-			proc.Push(0)
+			proc.functionstack.Push(0)
 		}
 	}, 2}
 	operations[VEC] = Operation{func(proc *Process, l ...Object) {
 		vec := make([]Object, 0)
 		var vecref VecT = &vec
-		proc.Push(vecref)
+		proc.functionstack.Push(vecref)
 	}, 0}
 	operations[ACC] = Operation{func(proc *Process, l ...Object) {
-		proc.Push((*(l[0].(VecT)))[l[1].(int)])
+		proc.functionstack.Push((*(l[0].(VecT)))[l[1].(int)])
 	}, 2}
 	operations[APP] = Operation{func(proc *Process, l ...Object) {
 		vec := l[0].(VecT)
@@ -373,13 +365,10 @@ func init() {
 			panic("Trying to collapse negative number of elements")
 		}
 		for i := 0; i < sz; i++ {
-			res, err := proc.Pop()
-			if err != nil {
-				panic(err)
-			}
+			res := proc.functionstack.Pop()
 			*vecref = append(*vecref, res)
 		}
-		proc.Push(vecref)
+		proc.functionstack.Push(vecref)
 	}, 1}
 
 	//STATE
@@ -387,7 +376,7 @@ func init() {
 		proc.state = l[0]
 	}, 1}
 	operations[SRE] = Operation{func(proc *Process, l ...Object) {
-		proc.Push(proc.state)
+		proc.functionstack.Push(proc.state)
 	}, 0}
 
 	//Interaction

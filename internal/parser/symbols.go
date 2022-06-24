@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"errors"
 	"fmt"
 
 	. "github.com/Besten/internal/runtime"
@@ -75,6 +76,8 @@ func injectBuiltinOperators(to *FunctionCollection) {
 type Variable struct {
 	Type    OBJType
 	Mutable bool
+	Arg     bool
+	Code    uint
 }
 
 type Scope struct {
@@ -84,6 +87,48 @@ type Scope struct {
 	ReturnType *OBJType
 	Returned   *bool
 	parent     *Scope
+	varcount   uint
+	argcount   uint
+}
+
+func (s *Scope) CreateVariable(name string, t OBJType, mutable bool, arg bool) {
+	s.Variables[name] = &Variable{t, mutable, arg, 0}
+	if arg {
+		s.Variables[name].Code = s.argcount
+		s.argcount++
+	} else {
+		s.Variables[name].Code = s.varcount
+		s.varcount++
+	}
+}
+
+func (s *Scope) GetVariableIns(name string) (Instruction, OBJType, error) {
+	if v, e := s.Variables[name]; e {
+		var ins Instruction
+		if v.Arg {
+			ins = MKInstruction(LEI, int(v.Code))
+		} else {
+			ins = MKInstruction(LLI, int(v.Code))
+		}
+		return ins, v.Type, nil
+	}
+	return MKInstruction(NOP), nil, errors.New(fmt.Sprintf("Undefined variable: %s", name))
+}
+
+func (s *Scope) SetVariableIns(name string, t OBJType) (Instruction, error) {
+	if v, e := s.Variables[name]; e {
+		if !CompareTypes(v.Type, t) {
+			return MKInstruction(NOP), errors.New("Invalid type")
+		}
+		var ins Instruction
+		if v.Arg {
+			ins = MKInstruction(SEI, int(v.Code))
+		} else {
+			ins = MKInstruction(SLI, int(v.Code))
+		}
+		return ins, nil
+	}
+	return MKInstruction(NOP), errors.New(fmt.Sprintf("Undefined variable: %s", name))
 }
 
 func NewScope() *Scope {
@@ -92,7 +137,7 @@ func NewScope() *Scope {
 	return &Scope{Variables: make(map[string]*Variable),
 		Functions:  NewFunctionCollection(),
 		Operators:  NewFunctionCollection(),
-		ReturnType: &rptr, Returned: &r, parent: nil}
+		ReturnType: &rptr, Returned: &r, parent: nil, varcount: 0, argcount: 0}
 }
 
 func (s *Scope) Open(nreturn bool) *Scope {
@@ -107,7 +152,7 @@ func (s *Scope) Open(nreturn bool) *Scope {
 	ns := &Scope{Variables: make(map[string]*Variable),
 		Functions:  s.Functions.Fork(),
 		Operators:  s.Operators.Fork(),
-		ReturnType: returnt, Returned: returned, parent: s}
+		ReturnType: returnt, Returned: returned, parent: s, varcount: 0, argcount: 0}
 	for k, v := range s.Variables {
 		ns.Variables[k] = v
 	}

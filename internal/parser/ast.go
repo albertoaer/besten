@@ -94,13 +94,13 @@ func (s *syntaxRoute) runIntoStack(p *Parser, stack *[]Instruction) (OBJType, er
 			return Void, err
 		}
 	} else {
-		v, e := p.currentScope().Variables[route[0]]
-		if !e {
-			return Void, errors.New(fmt.Sprintf("Undefined variable: %s", route[0]))
+		var ins Instruction
+		ins, tp, err = p.currentScope().GetVariableIns(route[0])
+		if err != nil {
+			return nil, err
 		}
-		*stack = append(*stack, MKInstruction(GET, route[0]))
+		*stack = append(*stack, ins)
 		route = s.route[1:]
-		tp = v.Type
 	}
 	for _, r := range route {
 		if t, e := tp.NamedItems()[r]; e {

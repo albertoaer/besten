@@ -89,7 +89,7 @@ func (p *Parser) generateFunctionFromTemplate(name string, operator bool, caller
 	}
 	compilename := generateFnUUID(name, p.modulename, len(callers))
 
-	p.openFragment(compilename)
+	p.openFragmentFor(compilename, len(template.Args), template.Varargs)
 
 	/*
 		Create function reference before function in order to avoid posible infinite dependency loops
@@ -103,8 +103,7 @@ func (p *Parser) generateFunctionFromTemplate(name string, operator bool, caller
 
 	for i := range template.Args {
 		//Stack, invert order
-		p.addInstruction(runtime.MKInstruction(runtime.SET, template.Args[i]))
-		p.currentScope().Variables[template.Args[i]] = &Variable{callers[i], true}
+		p.currentScope().CreateVariable(template.Args[i], callers[i], true, true)
 	}
 	err = p.parseBlocks(template.Children, Function)
 	if err != nil {
