@@ -56,41 +56,43 @@ func (p *Parser) findFunction(name string, operator bool, callers []OBJType) (sy
 	exists = false
 	var vec []*FunctionSymbol
 	if operator {
+		vec = p.currentScope().Operators.FindSymbol(name, len(callers))
+	} else {
+		vec = p.currentScope().Functions.FindSymbol(name, len(callers))
+	}
+	if vec != nil { //It has a vector of symbols to search for a symbol
+	outer:
+		for i := range vec {
+			for e := 0; e < len(callers); e++ {
+				if vec[i].Varargs && e >= len(vec[i].Args)-1 {
+					last := vec[i].Args[len(vec[i].Args)-1]
+					if last.Primitive() != VECTOR {
+						continue outer
+					}
+					comparator := callers[e]
+					if len(callers) == len(vec[i].Args) && callers[e].Primitive() == VARIADIC {
+						comparator = callers[e].Items()
+					}
+					if !CompareTypes(comparator, last.Items()) {
+						continue outer
+					}
+				} else if !CompareTypes(callers[e], vec[i].Args[e]) {
+					continue outer
+				}
+			}
+			sym = vec[i]
+			exists = true
+			return
+		}
+	}
+	if operator { //Try generating dynamic symbol
 		if s := p.currentScope().Operators.GenerateDynamicSymbol(name, callers); s != nil {
 			return s, true
 		}
-		vec = p.currentScope().Operators.FindSymbol(name, len(callers))
 	} else {
 		if s := p.currentScope().Functions.GenerateDynamicSymbol(name, callers); s != nil {
 			return s, true
 		}
-		vec = p.currentScope().Functions.FindSymbol(name, len(callers))
-	}
-	if vec == nil {
-		return //Function not found
-	}
-outer:
-	for i := range vec {
-		for e := 0; e < len(callers); e++ {
-			if vec[i].Varargs && e >= len(vec[i].Args)-1 {
-				last := vec[i].Args[len(vec[i].Args)-1]
-				if last.Primitive() != VECTOR {
-					continue outer
-				}
-				comparator := callers[e]
-				if len(callers) == len(vec[i].Args) && callers[e].Primitive() == VARIADIC {
-					comparator = callers[e].Items()
-				}
-				if !CompareTypes(comparator, last.Items()) {
-					continue outer
-				}
-			} else if !CompareTypes(callers[e], vec[i].Args[e]) {
-				continue outer
-			}
-		}
-		sym = vec[i]
-		exists = true
-		return
 	}
 	return //Function not generated with desired arguments
 }
