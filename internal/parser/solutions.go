@@ -89,17 +89,17 @@ func (p *Parser) generateFunctionFromTemplate(name string, operator bool, caller
 	}
 	compilename := generateFnUUID(name, p.modulename, len(callers))
 
+	p.open(compilename)
+
 	/*
 		Create function reference before function in order to avoid posible infinite dependency loops
 	*/
-	sym = &FunctionSymbol{CName: compilename, Call: runtime.MKInstruction(runtime.CLL, compilename), Return: p.rootscope.ReturnType, Args: callers}
+	sym = &FunctionSymbol{CName: compilename, Call: runtime.MKInstruction(runtime.CLL, compilename), Return: p.currentScope().ReturnType, Args: callers}
 	if operator {
 		p.currentScope().Operators.AddSymbol(name, sym)
 	} else {
 		p.currentScope().Functions.AddSymbol(name, sym)
 	}
-
-	p.open(compilename)
 
 	for i := range template.Args {
 		//Stack, invert order
