@@ -172,10 +172,6 @@ func boolNum(b bool) int {
 	return 0
 }
 
-func iToBool(i int) int {
-	return (i + 3) >> 1
-}
-
 /*
 Run zone
 */
@@ -306,13 +302,13 @@ func (proc *Process) run() {
 			case XOR:
 				fstack.Push(fstack.a(ins).(int) ^ fstack.b(ins).(int))
 			case NOTB:
-				fstack.Push(iToBool(^fstack.a(ins).(int)))
+				fstack.Push(1 ^ fstack.a(ins).(int))
 			case ANDB:
-				fstack.Push(iToBool(fstack.a(ins).(int) & fstack.b(ins).(int)))
+				fstack.Push(fstack.a(ins).(int) & fstack.b(ins).(int))
 			case ORB:
-				fstack.Push(iToBool(fstack.a(ins).(int) | fstack.b(ins).(int)))
+				fstack.Push(fstack.a(ins).(int) | fstack.b(ins).(int))
 			case XORB:
-				fstack.Push(iToBool(fstack.a(ins).(int) ^ fstack.b(ins).(int)))
+				fstack.Push(fstack.a(ins).(int) ^ fstack.b(ins).(int))
 			//STRINGS
 			case CCS:
 				fstack.Push(fstack.a(ins).(string) + fstack.b(ins).(string))
