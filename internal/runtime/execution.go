@@ -77,11 +77,6 @@ func (vm *VM) LoadSymbol(entry Symbol) {
 	if _, e := vm.symbols[entry.Name]; e {
 		panic("Overwriting symbol")
 	}
-	for _, item := range entry.Source {
-		if opNumTable[item.Code] < item.sz {
-			panic(errors.New("Too much operands for instruction"))
-		}
-	}
 	sym := entry
 	vm.symbols[entry.Name] = &sym
 }
