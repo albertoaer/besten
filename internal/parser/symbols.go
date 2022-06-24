@@ -108,6 +108,20 @@ func injectBuiltinFunctions(to *FunctionCollection) {
 		}
 		return nil
 	})
+	to.AddDynamicSymbol("setbykey", func(o []OBJType) *FunctionSymbol {
+		if len(o) == 3 {
+			var ins []Instruction
+			if o[2].Primitive() == VECTOR && o[1].Primitive() == INTEGER && CompareTypes(o[0], o[2].Items()) {
+				ins = []Instruction{MKInstruction(SVI)}
+			} else if o[2].Primitive() == MAP && o[1].Primitive() == STRING && CompareTypes(o[0], o[2].Items()) {
+				ins = []Instruction{MKInstruction(ATT)}
+			} else {
+				return nil
+			}
+			return &FunctionSymbol{"none", false, ins, CloneType(Void), o}
+		}
+		return nil
+	})
 }
 
 func injectBuiltinOperators(to *FunctionCollection) {
@@ -132,7 +146,6 @@ func injectBuiltinOperators(to *FunctionCollection) {
 	to.AddSymbols("<=", multiTypeInstruction(2, Bool, map[OBJType]ICode{Int: ILQ, Dec: DLQ}))
 	to.AddSymbols(">=", multiTypeInstruction(2, Bool, map[OBJType]ICode{Int: IGQ, Dec: DGQ}))
 	to.AddDynamicSymbol("[]", func(o []OBJType) *FunctionSymbol {
-		//Can be implemented by symbol switch but is useful to be this way in order to future custom type generation
 		if len(o) == 2 {
 			var ins []Instruction
 			var ret *OBJType
@@ -141,7 +154,7 @@ func injectBuiltinOperators(to *FunctionCollection) {
 				ret = CloneType(o[0].Items())
 			} else if o[0].Primitive() == MAP && o[1].Primitive() == STRING {
 				ins = []Instruction{MKInstruction(PRP)}
-				ret = CloneType(o[0].Items())
+				ret = CloneType(TupleOf([]OBJType{o[0].Items(), Bool}))
 			} else if o[0].Primitive() == STRING && o[1].Primitive() == INTEGER {
 				ins = MKInstruction(CAI).Fragment()
 				ret = CloneType(Int)
@@ -157,7 +170,7 @@ func injectBuiltinOperators(to *FunctionCollection) {
 			var ins []Instruction
 			if o[1].Primitive() == VECTOR && CompareTypes(o[0], o[1].Items()) {
 				ins = []Instruction{MKInstruction(SWT), MKInstruction(APP)}
-			} else if o[1].Primitive() == MAP && CompareTypes(o[0], TupleOf([]OBJType{Str, o[1].Items()})) {
+			} else if o[1].Primitive() == MAP && CompareTypes(o[0], TupleOf([]OBJType{o[1].Items(), Str})) {
 				ins = []Instruction{MKInstruction(EIS), MKInstruction(ATT)}
 			} else {
 				return nil

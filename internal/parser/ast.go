@@ -123,6 +123,35 @@ func (s *syntaxConstantAccess) runIntoStack(p *Parser, stack *[]Instruction) (OB
 	return elems[s.idx], nil
 }
 
+func (s *syntaxConstantAccess) runIntoStackSet(p *Parser, stack *[]Instruction, branch syntaxBranch) error {
+	tempstack := make([]Instruction, 0) //Important to insert the push index
+	r, e := s.target.runIntoStack(p, &tempstack)
+	if e != nil {
+		return e
+	}
+	tempstackval := make([]Instruction, 0) //Important to insert the push index
+	r2, e := branch.runIntoStack(p, &tempstackval)
+	if e != nil {
+		return e
+	}
+	if r.Primitive() != TUPLE { //When is not tuple related search for index operator
+		_, err := p.solveFunctionCall("setbykey", false, []OBJType{r2, Int, r},
+			[][]Instruction{tempstackval, MKInstruction(PSH, s.idx).Fragment(), tempstack}, stack)
+		return err
+	}
+	*stack = append(*stack, tempstack...)
+	*stack = append(*stack, tempstackval...)
+	elems := r.FixedItems()
+	if s.idx < 0 || len(elems) <= s.idx {
+		return errors.New(fmt.Sprintf("Invalid index %d for %s", s.idx, Repr(r)))
+	}
+	if !CompareTypes(elems[s.idx], r2) {
+		return errors.New(fmt.Sprintf("Invalid type %s at position %d for %s", Repr(r2), s.idx, Repr(r)))
+	}
+	*stack = append(*stack, MKInstruction(SVI, nil, s.idx))
+	return nil
+}
+
 type syntaxRoute struct {
 	origin syntaxBranch //if origin is not null is where the route access to
 	route  []string     //Maybe include de single variable case, already implemented in syntaxLiteral
@@ -161,12 +190,15 @@ func (s *syntaxRoute) runIntoStack(p *Parser, stack *[]Instruction) (OBJType, er
 	return tp, err
 }
 
-func (s *syntaxRoute) runIntoStackSet(p *Parser, stack *[]Instruction, objtype OBJType) error {
+func (s *syntaxRoute) runIntoStackSet(p *Parser, stack *[]Instruction, branch syntaxBranch) error {
+	objtype, err := branch.runIntoStack(p, stack)
+	if err != nil {
+		return err
+	}
 	if len(s.route) == 0 {
 		return errors.New("No route provided")
 	}
 	var tp OBJType
-	var err error
 	route := s.route
 	if s.origin != nil {
 		tp, err = s.origin.runIntoStack(p, stack)
@@ -247,6 +279,18 @@ func (s *syntaxOpCall) runIntoStack(p *Parser, stack *[]Instruction) (OBJType, e
 	return p.solveFunctionCall(s.operator, true, ops, stacks, stack)
 }
 
+func (s *syntaxOpCall) runIntoStackSet(p *Parser, stack *[]Instruction, branch syntaxBranch) error {
+	if s.operator != INDEXOP.Data {
+		return errors.New("Cannot set")
+	}
+	ops, stacks, err := runBranchesIntoStacks(p, []syntaxBranch{branch, s.operands[1], s.operands[0]})
+	if err != nil {
+		return err
+	}
+	_, err = p.solveFunctionCall("setbykey", false, ops, stacks, stack)
+	return err
+}
+
 type syntaxTypeCreation struct {
 	typeref []Token
 	owner   *SyntaxTree
@@ -293,20 +337,20 @@ func (s *syntaxHighLevelCall) runIntoStack(p *Parser, stack *[]Instruction) (OBJ
 
 type syntaxAssignment struct {
 	value  syntaxBranch
-	assign syntaxBranchGetSet
+	assign syntaxBranchSet
 	owner  *SyntaxTree
 }
 
 func (s *syntaxAssignment) runIntoStack(p *Parser, stack *[]Instruction) (OBJType, error) {
-	objt, err := s.value.runIntoStack(p, stack)
-	if err != nil {
-		return nil, err
-	}
-	return Void, s.assign.runIntoStackSet(p, stack, objt)
+	return Void, s.assign.runIntoStackSet(p, stack, s.value)
 }
 
 type syntaxBranch interface {
 	runIntoStack(p *Parser, stack *[]Instruction) (OBJType, error)
+}
+
+type syntaxBranchSet interface {
+	runIntoStackSet(p *Parser, stack *[]Instruction, branch syntaxBranch) error
 }
 
 func runBranchesIntoStacks(p *Parser, branches []syntaxBranch) ([]OBJType, [][]Instruction, error) {
@@ -322,11 +366,6 @@ func runBranchesIntoStacks(p *Parser, branches []syntaxBranch) ([]OBJType, [][]I
 		}
 	}
 	return ops, stacks, nil
-}
-
-type syntaxBranchGetSet interface {
-	runIntoStack(p *Parser, stack *[]Instruction) (OBJType, error)
-	runIntoStackSet(p *Parser, stack *[]Instruction, objtype OBJType) error
 }
 
 type SyntaxTree struct {
@@ -370,7 +409,15 @@ func (s *SyntaxTree) splitAssignmentExpression(tks []Token, children []Block) (s
 	if len(ttks) == 1 {
 		return rightterm, nil
 	}
-	return s.identifyAssignmentExpressionBranch(ttks[0], rightterm)
+
+	leftterm, err := s.identifyExpressionBranch(ttks[0])
+	if err != nil {
+		return nil, err
+	}
+	if setter, v := leftterm.(syntaxBranchSet); v {
+		return &syntaxAssignment{value: rightterm, assign: setter, owner: s}, nil
+	}
+	return nil, errors.New("Cannot set")
 }
 
 func (s *SyntaxTree) generateFirstLevelExpression(tks []Token, children []Block) (syntaxBranch, error) {
@@ -452,14 +499,6 @@ func (s *SyntaxTree) generateOperatorBranch(tks [][]Token) (syntaxBranch, error)
 		operands: []syntaxBranch{left, right},
 	}
 	return &opb, nil
-}
-
-func (s *SyntaxTree) identifyAssignmentExpressionBranch(tks []Token, obj syntaxBranch) (syntaxBranch, error) {
-	route, e := getRoute(tks)
-	if e != nil {
-		return nil, e
-	}
-	return &syntaxAssignment{obj, &syntaxRoute{nil, route, s}, s}, nil
 }
 
 //Detects if it's an object literal, function call, etc and generates it

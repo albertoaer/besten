@@ -84,15 +84,14 @@ const (
 	KVC = 160 //Creates a map
 	PRP = 161 //Gets value from map
 	ATT = 162 //Attaches value to map
-	EXK = 163 //Finds out if key is already in map
-	VEC = 164 //Creates a vector
-	ACC = 165 //Accesses position of vector
-	APP = 166 //Appends element at the end of a vector
-	SVI = 167 //Set vector item at position
-	DMI = 168 //Delete map item
-	PFV = 169 //Pop from vector
-	CSE = 171 //Collapse stack elements
-	EIS = 172 //Expand into stack
+	VEC = 163 //Creates a vector
+	ACC = 164 //Accesses position of vector
+	APP = 165 //Appends element at the end of a vector
+	SVI = 166 //Set vector item at position
+	DMI = 167 //Delete map item
+	PFV = 168 //Pop from vector
+	CSE = 170 //Collapse stack elements
+	EIS = 171 //Expand into stack
 
 	//SIZE
 

@@ -316,13 +316,15 @@ func (proc *Process) run() {
 			case KVC:
 				fstack.Push(make(MapT))
 			case PRP:
-				fstack.Push((fstack.a(ins).(MapT))[fstack.b(ins).(string)])
+				vec := make([]Object, 2)
+				var vecref VecT = &vec
+				k, v := fstack.a(ins).(MapT)[fstack.b(ins).(string)]
+				vec[0] = k
+				vec[1] = boolNum(v)
+				fstack.Push(vecref)
 			case ATT:
-				key, val, m := fstack.a(ins).(string), fstack.b(ins), fstack.c(ins).(MapT)
+				val, key, m := fstack.a(ins), fstack.b(ins).(string), fstack.c(ins).(MapT)
 				(m)[key] = val
-			case EXK:
-				_, exists := (fstack.a(ins).(MapT))[fstack.b(ins).(string)]
-				fstack.Push(boolNum(exists))
 			case VEC:
 				vec := make([]Object, 0)
 				var vecref VecT = &vec
@@ -333,8 +335,8 @@ func (proc *Process) run() {
 				vec := fstack.a(ins).(VecT)
 				*vec = append(*vec, fstack.b(ins))
 			case SVI:
-				vec := *(fstack.a(ins).(VecT))
-				vec[fstack.b(ins).(int)] = fstack.c(ins)
+				val, idx, vec := fstack.a(ins), fstack.b(ins).(int), *(fstack.c(ins).(VecT))
+				vec[idx] = val
 			case DMI:
 				m := fstack.a(ins).(MapT)
 				delete(m, fstack.a(ins).(string))
