@@ -128,6 +128,7 @@ func (p *Parser) generateFunctionFromTemplate(name string, operator bool, caller
 func (p *Parser) generateFunctionFromRawTemplate(name string, operator bool, callers []OBJType, template *FunctionTemplate) (sym *FunctionSymbol, err error) {
 	compilename := generateFnUUID(name, p.rootscope.DataModule.Name(), len(template.Args), template.Varargs, false)
 
+	originScope := p.currentScope()
 	p.openFragmentFor(compilename, len(template.Args))
 
 	args := make([]OBJType, 0)
@@ -164,8 +165,10 @@ func (p *Parser) generateFunctionFromRawTemplate(name string, operator bool, cal
 	sym = &FunctionSymbol{CName: compilename, Call: runtime.MKInstruction(runtime.CLL, compilename).Fragment(), Return: p.currentScope().ReturnType, Args: args, Varargs: template.Varargs}
 	if operator {
 		p.currentScope().Operators.AddSymbol(name, sym)
+		originScope.Operators.AddSymbol(name, sym)
 	} else {
 		p.currentScope().Functions.AddSymbol(name, sym)
+		originScope.Functions.AddSymbol(name, sym)
 	}
 
 	err = p.parseBlocks(template.Children, Function)

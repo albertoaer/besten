@@ -97,11 +97,6 @@ func (p *Parser) parseFunction(block Block, operator bool) error {
 	}
 	template := FunctionTemplate{Args: args, Varargs: varargs, Children: block.Children}
 	if usetypes {
-		if operator {
-			p.currentScope().Operators.SaveSymbolHolder(name.Data)
-		} else {
-			p.currentScope().Functions.SaveSymbolHolder(name.Data)
-		}
 		_, e = p.generateFunctionFromRawTemplate(name.Data, operator, types, &template)
 	} else {
 		e = p.generateFunctionTemplate(name.Data, operator, template)
@@ -826,8 +821,6 @@ func (p *Parser) parseByKeyword(name string, block Block, scp ScopeCtx) error {
 		switch name {
 		case "import":
 			return p.parseImport(block)
-		case "fn", "op":
-			return p.parseFunction(block, name == "op")
 		case "drop":
 			return p.parseDrop(block)
 		case "alias":
@@ -874,6 +867,8 @@ func (p *Parser) parseByKeyword(name string, block Block, scp ScopeCtx) error {
 		}
 	}
 	switch name {
+	case "fn", "op":
+		return p.parseFunction(block, name == "op")
 	case "omit":
 		return nil //The block is omitted
 	}
