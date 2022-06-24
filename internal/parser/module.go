@@ -2,8 +2,6 @@ package parser
 
 import (
 	"errors"
-	"os"
-	"path/filepath"
 )
 
 type Module interface {
@@ -18,11 +16,6 @@ type FileModule struct {
 }
 
 func (m *FileModule) Name() string {
-	if wdir, err := os.Getwd(); err == nil {
-		if relpath, err := filepath.Rel(wdir, m.name); err == nil {
-			return relpath
-		}
-	}
 	return m.name
 }
 

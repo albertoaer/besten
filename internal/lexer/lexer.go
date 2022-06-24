@@ -5,12 +5,26 @@ import (
 	"io"
 )
 
+type Source interface {
+	Origin() string
+	GetSource() (io.ReadCloser, error)
+}
+
+type Lexer struct {
+	source Source
+}
+
+func LexerFor(source Source) *Lexer {
+	return &Lexer{source: source}
+}
+
 type Block struct {
 	Begin    int
 	End      int
 	Tokens   []Token
 	Children []Block
 	Parent   *Block
+	Origin   string
 }
 
 func getChilds(blks []dirtyBlock) (line []Token, sub bool, children []dirtyBlock, lline int, err error) {
@@ -45,7 +59,7 @@ func getChilds(blks []dirtyBlock) (line []Token, sub bool, children []dirtyBlock
 	return
 }
 
-func solveBlock(raw dirtyBlock, parent *Block) (block Block, err error) {
+func (l *Lexer) solveBlock(raw dirtyBlock, parent *Block) (block Block, err error) {
 	//sublevel: Indicates that any subline is in a sublevel, otherwise sublines would be treat like the same line
 	tks, sublevel, err := GetTokens(raw.raw)
 	begin := raw.line
@@ -75,7 +89,7 @@ func solveBlock(raw dirtyBlock, parent *Block) (block Block, err error) {
 	}
 
 	//Solve children and fill the block template
-	childs, err := solveBlocks(target_children, &block)
+	childs, err := l.solveBlocks(target_children, &block)
 	if err != nil {
 		return
 	}
@@ -84,12 +98,13 @@ func solveBlock(raw dirtyBlock, parent *Block) (block Block, err error) {
 	block.Parent = parent
 	block.Tokens = tks
 	block.Children = childs
+	block.Origin = l.source.Origin()
 	return
 }
 
-func solveBlocks(raw []dirtyBlock, parent *Block) (blocks []Block, err error) {
+func (l *Lexer) solveBlocks(raw []dirtyBlock, parent *Block) (blocks []Block, err error) {
 	for _, r := range raw {
-		b, e := solveBlock(r, parent)
+		b, e := l.solveBlock(r, parent)
 		if e != nil {
 			err = e
 			return
@@ -101,11 +116,19 @@ func solveBlocks(raw []dirtyBlock, parent *Block) (blocks []Block, err error) {
 	return
 }
 
-func GetBlocks(src io.Reader) (blocks []Block, err error) {
-	raw_blocks, err := getRawStructure(src)
+func (l *Lexer) GetBlocks() (blocks []Block, err error) {
+	var s io.ReadCloser
+	if s, err = l.source.GetSource(); err != nil {
+		return
+	}
+	raw_blocks, err := getRawStructure(s)
 	if err != nil {
 		return
 	}
-	blocks, err = solveBlocks(raw_blocks, nil)
+	blocks, err = l.solveBlocks(raw_blocks, nil)
+	e := s.Close()
+	if err != nil {
+		err = e
+	}
 	return
 }

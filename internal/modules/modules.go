@@ -3,6 +3,7 @@ package modules
 import (
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"io/ioutil"
 	"os"
@@ -19,6 +20,18 @@ func prettyTokens(blocks []Block, tabs string) {
 		fmt.Printf(tabs+"%v\n", b.Tokens)
 		prettyTokens(b.Children, tabs+"  ")
 	}
+}
+
+type fileSource struct {
+	path string
+}
+
+func (f *fileSource) Origin() string {
+	return f.path
+}
+
+func (f *fileSource) GetSource() (io.ReadCloser, error) {
+	return os.Open(f.path)
 }
 
 type storedModule struct {
@@ -171,11 +184,8 @@ func (m *Modules) FileParser(requester int, path string) (*parser.Parser, error)
 		md.exclusion.Unlock()
 		return parser, err
 	}
-	reader, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	blocks, err := GetBlocks(reader)
+	filesrc := fileSource{path}
+	blocks, err := LexerFor(&filesrc).GetBlocks()
 	if err != nil {
 		return nil, err
 	}

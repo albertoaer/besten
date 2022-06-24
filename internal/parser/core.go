@@ -3,6 +3,8 @@ package parser
 import (
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -985,7 +987,13 @@ func (p *Parser) parseBlocks(blocks []Block, scp ScopeCtx) error {
 				if block.Begin != block.End {
 					lineid = lineid + ".." + strconv.Itoa(block.End)
 				}
-				return errors.New(fmt.Sprintf("[File: %s] [Error in line (%s)]\n\t%s", p.GetModule().Name(), lineid, strerr))
+				file := block.Origin
+				if wdir, err := os.Getwd(); err == nil {
+					if relpath, err := filepath.Rel(wdir, file); err == nil {
+						file = relpath
+					}
+				}
+				return errors.New(fmt.Sprintf("[File: %s] [Error in line (%s)]\n\t%s", file, lineid, strerr))
 			}
 			return e
 		}
