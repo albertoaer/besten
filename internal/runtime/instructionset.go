@@ -5,7 +5,7 @@ type ICode uint16
 const (
 	NOP ICode = 0
 
-	//Arithmetic
+	//ARITHMETIC
 	ADD  = 10
 	SUB  = 11
 	MUL  = 12
@@ -16,20 +16,24 @@ const (
 	MULF = 17
 	DIVF = 18
 
-	//Conversion
+	//CONVERSION
 	ITD = 20
 	DTI = 21
 
-	//Equality
+	//EQUALITY
 	EQI = 30
 	EQD = 31
 	EQS = 32
 
-	//Logic
+	//LOGIC
 	NOT = 40
 	AND = 41
 	OR  = 42
 	XOR = 43
+
+	//STRINGS
+	CCS = 60 //Concatenate strings
+	CAI = 61 //Char at index
 
 	//Context
 	OPN = 80 //Creates context at the top, forking the upper one
@@ -65,6 +69,8 @@ const (
 	ACC = 165 //Accesses position of vector
 	APP = 166 //Appends element at the end of a vector
 	SVI = 167 //Set vector item at position
+	DMI = 168 //Delete map item
+	CSE = 169 //Collapse stack elements
 
 	//STATE
 	SWR = 200 //State write
@@ -92,7 +98,7 @@ var operations map[ICode]Operation
 func init() {
 	operations = make(map[ICode]Operation)
 
-	//Arithmetic
+	//ARITHMETIC
 	operations[ADD] = Operation{func(proc *Process, l ...Object) {
 		proc.Push(l[0].(int) + l[1].(int))
 	}, 2}
@@ -121,7 +127,7 @@ func init() {
 		proc.Push(l[0].(float64) / l[1].(float64))
 	}, 2}
 
-	//Conversion
+	//CONVERSION
 	operations[ITD] = Operation{func(proc *Process, l ...Object) {
 		proc.Push(float64(l[0].(int)))
 	}, 1}
@@ -129,7 +135,7 @@ func init() {
 		proc.Push(int(l[0].(float64)))
 	}, 1}
 
-	//Equality
+	//EQUALITY
 	operations[EQI] = Operation{func(proc *Process, l ...Object) {
 		if l[0].(int) == l[1].(int) {
 			proc.Push(1)
@@ -152,7 +158,7 @@ func init() {
 		}
 	}, 2}
 
-	//Logic
+	//LOGIC
 	operations[NOT] = Operation{func(proc *Process, l ...Object) {
 		proc.Push(^l[0].(int))
 	}, 1}
@@ -164,6 +170,14 @@ func init() {
 	}, 2}
 	operations[XOR] = Operation{func(proc *Process, l ...Object) {
 		proc.Push(l[0].(int) ^ l[1].(int))
+	}, 2}
+
+	//STRINGS
+	operations[CCS] = Operation{func(proc *Process, l ...Object) {
+		proc.Push(l[0].(string) + l[1].(string))
+	}, 2}
+	operations[CAI] = Operation{func(proc *Process, l ...Object) {
+		proc.Push(l[0].(string)[l[1].(int)])
 	}, 2}
 
 	//CONTEXT
@@ -276,6 +290,26 @@ func init() {
 		vec := *(l[0].(VecT))
 		vec[l[1].(int)] = l[2]
 	}, 3}
+	operations[DMI] = Operation{func(proc *Process, l ...Object) {
+		m := l[0].(MapT)
+		delete(m, l[1].(string))
+	}, 2}
+	operations[CSE] = Operation{func(proc *Process, l ...Object) {
+		vec := make([]Object, 0)
+		var vecref VecT = &vec
+		sz := l[0].(int)
+		if sz < 0 {
+			panic("Trying to collapse negative number of elements")
+		}
+		for i := 0; i < sz; i++ {
+			res, err := proc.Pop()
+			if err != nil {
+				panic(err)
+			}
+			*vecref = append(*vecref, res)
+		}
+		proc.Push(vecref)
+	}, 1}
 
 	//STATE
 	operations[SWR] = Operation{func(proc *Process, l ...Object) {
