@@ -71,7 +71,7 @@ func main() {
 		panic("Expecting file")
 	}
 	file := flag.Args()[0]
-	symbols, _, err := modules.New().File(file)
+	symbols, _, err := modules.New().MainFile(file)
 	if err != nil {
 		panic(err)
 	}
