@@ -74,10 +74,11 @@ type Variable struct {
 }
 
 type Scope struct {
-	Variables  map[string]*Variable //TODO: Auxiliar module like the function collection for functions
+	Variables  map[string]*Variable
 	Functions  *FunctionCollection
 	Operators  *FunctionCollection
 	ReturnType *OBJType
+	Returned   bool
 	parent     *Scope
 }
 
@@ -86,7 +87,7 @@ func NewScope() *Scope {
 	return &Scope{Variables: make(map[string]*Variable),
 		Functions:  NewFunctionCollection(),
 		Operators:  NewFunctionCollection(),
-		ReturnType: &rptr, parent: nil}
+		ReturnType: &rptr, Returned: false, parent: nil}
 }
 
 func (s *Scope) Open() *Scope {
@@ -94,7 +95,7 @@ func (s *Scope) Open() *Scope {
 	ns := &Scope{Variables: make(map[string]*Variable),
 		Functions:  s.Functions.Fork(),
 		Operators:  s.Operators.Fork(),
-		ReturnType: &rptr, parent: s}
+		ReturnType: &rptr, Returned: false, parent: s}
 	for k, v := range s.Variables {
 		ns.Variables[k] = v
 	}

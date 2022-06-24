@@ -12,6 +12,7 @@ import (
 type syntaxLiteral struct {
 	value string
 	kind  TokenType
+	owner *SyntaxTree
 }
 
 func (s *syntaxLiteral) runIntoStack(p *Parser, stack *[]Instruction) (OBJType, error) {
@@ -77,6 +78,7 @@ func getRoute(tk []Token) ([]string, error) {
 type syntaxRoute struct {
 	origin syntaxBranch //if origin is not null is where the route access to
 	route  []string     //Maybe include de single variable case, already implemented in syntaxLiteral
+	owner  *SyntaxTree
 }
 
 func (s *syntaxRoute) runIntoStack(p *Parser, stack *[]Instruction) (OBJType, error) {
@@ -114,6 +116,7 @@ func (s *syntaxRoute) runIntoStack(p *Parser, stack *[]Instruction) (OBJType, er
 type syntaxCall struct {
 	relation *syntaxRoute
 	operands []syntaxBranch
+	owner    *SyntaxTree
 }
 
 func (s *syntaxCall) runIntoStack(p *Parser, stack *[]Instruction) (OBJType, error) {
@@ -144,6 +147,7 @@ func (s *syntaxCall) runIntoStack(p *Parser, stack *[]Instruction) (OBJType, err
 type syntaxOpCall struct {
 	operator string
 	operands []syntaxBranch
+	owner    *SyntaxTree
 }
 
 func (s *syntaxOpCall) runIntoStack(p *Parser, stack *[]Instruction) (OBJType, error) {
@@ -164,6 +168,7 @@ func (s *syntaxOpCall) runIntoStack(p *Parser, stack *[]Instruction) (OBJType, e
 
 type syntaxTypeCreation struct {
 	typenames [][]Token
+	owner     *SyntaxTree
 }
 
 func (s *syntaxTypeCreation) runIntoStack(p *Parser, stack *[]Instruction) (OBJType, error) {
@@ -175,6 +180,7 @@ type syntaxHighLevelCall struct {
 	operands  []syntaxBranch
 	modifiers []syntaxBranch
 	lambda    string
+	owner     *SyntaxTree
 }
 
 func (s *syntaxHighLevelCall) runIntoStack(p *Parser, stack *[]Instruction) (OBJType, error) {
@@ -198,6 +204,9 @@ func (s *syntaxHighLevelCall) runIntoStack(p *Parser, stack *[]Instruction) (OBJ
 		}
 	}
 	ins, ret, err := p.solveFunctionCall(s.relation.route[0], false, ops)
+	if s.owner.inReturn && ins.Code == CLL {
+		ins.Code = JMP
+	}
 	*stack = append(*stack, ins)
 	return ret, err
 }
@@ -207,8 +216,9 @@ type syntaxBranch interface {
 }
 
 type SyntaxTree struct {
-	root   syntaxBranch
-	parser *Parser
+	root     syntaxBranch
+	parser   *Parser
+	inReturn bool
 }
 
 func (s *SyntaxTree) runIntoStack(stack *[]Instruction) (OBJType, error) {
@@ -218,8 +228,8 @@ func (s *SyntaxTree) runIntoStack(stack *[]Instruction) (OBJType, error) {
 	return s.root.runIntoStack(s.parser, stack)
 }
 
-func GenerateTree(parser *Parser, tks []Token, children []Block) (tree *SyntaxTree, err error) {
-	tree = &SyntaxTree{nil, parser}
+func GenerateTree(parser *Parser, tks []Token, children []Block, in_ret bool) (tree *SyntaxTree, err error) {
+	tree = &SyntaxTree{nil, parser, in_ret}
 	tree.root, err = tree.generateFirstLevelExpression(tks, children)
 	return
 }
@@ -236,6 +246,7 @@ func (s *SyntaxTree) generateFirstLevelExpression(tks []Token, children []Block)
 		}
 		if len(name) != 0 {
 			var op syntaxHighLevelCall
+			op.owner = s
 			route, e := getRoute(name)
 			if e != nil {
 				return nil, e
@@ -323,13 +334,13 @@ func (s *SyntaxTree) identifyExpressionBranch(tks []Token) (syntaxBranch, error)
 		return nil, errors.New("Expecting expression")
 	}
 	if route, e := getRoute(tks); e == nil {
-		return &syntaxRoute{nil, route}, nil
+		return &syntaxRoute{nil, route, s}, nil
 	}
 	if len(tks) == 1 {
 		if !isLiteral(tks[0]) {
 			return nil, errors.New(fmt.Sprintf("Unexpected token: %s", tks[0].Data))
 		}
-		return &syntaxLiteral{tks[0].Data, tks[0].Kind}, nil
+		return &syntaxLiteral{tks[0].Data, tks[0].Kind, s}, nil
 	}
 	left, inner, right, err := blockSubtract(tks, BOPEN, BCLOSE, []struct {
 		open  Token
@@ -352,7 +363,7 @@ func (s *SyntaxTree) identifyExpressionBranch(tks []Token) (syntaxBranch, error)
 				close Token
 			}, 0), false, false)
 			e = err
-			preceded = &syntaxTypeCreation{typenames}
+			preceded = &syntaxTypeCreation{typenames, s}
 		} else { //Indexation
 			route, e := getRoute(left)
 			if e != nil {
@@ -360,7 +371,7 @@ func (s *SyntaxTree) identifyExpressionBranch(tks []Token) (syntaxBranch, error)
 			}
 			indexer, err := s.generateSecondLevelExpression(inner)
 			e = err
-			preceded = &syntaxOpCall{operator: INDEXOP.Data, operands: []syntaxBranch{&syntaxRoute{nil, route}, indexer}}
+			preceded = &syntaxOpCall{operator: INDEXOP.Data, operands: []syntaxBranch{&syntaxRoute{nil, route, s}, indexer}}
 		}
 		if len(right) == 0 || e != nil {
 			return preceded, e
@@ -384,7 +395,7 @@ func (s *SyntaxTree) identifySubrouting(preceded syntaxBranch, next []Token) (sy
 		if e != nil {
 			return nil, e
 		}
-		return &syntaxRoute{preceded, route}, nil
+		return &syntaxRoute{preceded, route, s}, nil
 	} else if len(left) == 0 {
 		indexer, err := s.generateSecondLevelExpression(inner)
 		e = err
@@ -396,7 +407,7 @@ func (s *SyntaxTree) identifySubrouting(preceded syntaxBranch, next []Token) (sy
 		}
 		indexer, err := s.generateSecondLevelExpression(inner)
 		e = err
-		idx = &syntaxOpCall{operator: INDEXOP.Data, operands: []syntaxBranch{&syntaxRoute{preceded, route}, indexer}}
+		idx = &syntaxOpCall{operator: INDEXOP.Data, operands: []syntaxBranch{&syntaxRoute{preceded, route, s}, indexer}}
 	}
 	if len(right) == 0 || e != nil {
 		return idx, e

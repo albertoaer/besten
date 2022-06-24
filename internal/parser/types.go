@@ -33,8 +33,14 @@ func Repr(a OBJType) string {
 	switch a.Primitive() {
 	case VECTOR, MAP:
 		base += "|" + Repr(a.Items())
-	case STRUCT: //TODO: Named types repr
-	case TUPLE: //TODO: Fixed length types repr
+	case STRUCT:
+		var items []OBJType
+		for _, i := range items {
+			items = append(items, i)
+		}
+		base += "|" + ArrRepr(items)
+	case TUPLE:
+		base += "|" + ArrRepr(a.FixedItems())
 	}
 	return base
 }

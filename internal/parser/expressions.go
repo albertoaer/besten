@@ -5,8 +5,8 @@ import (
 	. "github.com/Besten/internal/runtime"
 )
 
-func (p *Parser) parseExpression(tks []Token, children []Block) (OBJType, error) {
-	ast, err := GenerateTree(p, tks, children)
+func (p *Parser) parseExpression(tks []Token, children []Block, returning bool) (OBJType, error) {
+	ast, err := GenerateTree(p, tks, children, returning)
 	if err != nil {
 		return Void, err
 	}

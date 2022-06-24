@@ -109,13 +109,12 @@ func (p *Parser) parseDefinition(block Block, constant bool) error {
 func (p *Parser) parseReturn(block Block) error {
 	tks := discardOne(block.Tokens)
 	if len(tks) != 0 {
-		ret, e := p.parseExpression(tks, block.Children)
+		ret, e := p.parseExpression(tks, block.Children, true)
 		if e != nil {
 			return e
 		}
-		//FIXME: if function returns void, and then returns non void should give and error
 		//Is valid returning void, in order to achive infinite recursion
-		if (*p.currentScope().ReturnType).Primitive() == VOID || CompareTypes(*p.currentScope().ReturnType, ret) {
+		if (!p.currentScope().Returned && (*p.currentScope().ReturnType).Primitive() == VOID) || CompareTypes(*p.currentScope().ReturnType, ret) {
 			*p.currentScope().ReturnType = ret
 		} else {
 			return errors.New(fmt.Sprintf("Expecting return type: %s", (*p.currentScope().ReturnType).TypeName()))
@@ -123,6 +122,7 @@ func (p *Parser) parseReturn(block Block) error {
 	} else if (*p.currentScope().ReturnType).Primitive() != VOID {
 		return errors.New(fmt.Sprintf("Expecting return type: %s", (*p.currentScope().ReturnType).TypeName()))
 	}
+	p.currentScope().Returned = true
 	p.addInstruction(MKInstruction(RET))
 	return nil
 }
@@ -229,7 +229,7 @@ func (p *Parser) parseById(block Block, scp ScopeCtx) error {
 	if len(tks) > 2 {
 		return errors.New("Multiassignment is not implemented")
 	}
-	t, e := p.parseExpression(tks[len(tks)-1], block.Children)
+	t, e := p.parseExpression(tks[len(tks)-1], block.Children, false)
 	if e != nil {
 		return e
 	}
@@ -258,7 +258,7 @@ func (p *Parser) parseBlock(block Block, scp ScopeCtx) error {
 		} else {
 			//No keyword, always a expression
 			//TODO: Include expression assignment in ast
-			ret, e := p.parseExpression(block.Tokens, block.Children)
+			ret, e := p.parseExpression(block.Tokens, block.Children, false)
 			if ret != Void {
 				p.addInstruction(MKInstruction(POP))
 			}
