@@ -1,10 +1,6 @@
 package parser
 
 import (
-	"crypto/md5"
-	"encoding/hex"
-	"time"
-
 	. "github.com/Besten/internal/lexer"
 	. "github.com/Besten/internal/runtime"
 )
@@ -133,9 +129,4 @@ func (p *Parser) GenerateFunction(name string) (string, error) {
 
 func (p *Parser) GetSymbols() map[string]Symbol {
 	return p.symbols
-}
-
-func generateUUID(name string) string {
-	bt := md5.Sum([]byte(time.Now().String()))
-	return name + hex.EncodeToString(bt[:])
 }

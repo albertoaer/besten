@@ -18,7 +18,7 @@ type FunctionSymbol struct {
 	CName   string
 	Varargs bool
 	Call    Instruction
-	Return  OBJType
+	Return  *OBJType
 	Args    []OBJType
 }
 
@@ -28,8 +28,8 @@ type NamedTemplateContainer struct {
 }
 
 type NamedFunctionContainer struct {
-	fixedargs       map[int][]FunctionSymbol
-	variadic        []FunctionSymbol
+	fixedargs       map[int][]*FunctionSymbol
+	variadic        []*FunctionSymbol
 	minvariadicargs int
 }
 
@@ -118,10 +118,10 @@ func (collection *FunctionCollection) FindTemplate(name string, args int) *Funct
 }
 
 //Adds variadic and non-variadic functions into de collection associated with a name
-func (collection *FunctionCollection) AddSymbol(name string, function FunctionSymbol) error {
+func (collection *FunctionCollection) AddSymbol(name string, function *FunctionSymbol) error {
 	v, e := collection.functions[name]
 	if !e {
-		v = &NamedFunctionContainer{make(map[int][]FunctionSymbol), make([]FunctionSymbol, 0), -1}
+		v = &NamedFunctionContainer{make(map[int][]*FunctionSymbol), make([]*FunctionSymbol, 0), -1}
 		collection.functions[name] = v
 	}
 	if function.Varargs {
@@ -143,13 +143,13 @@ Adds an array of non-variadic functions into de collection associated with a nam
 NOT VALID FOR NON VARIADIC
 length will be taken from the first symbol
 */
-func (collection *FunctionCollection) AddSymbols(name string, functions []FunctionSymbol) error {
+func (collection *FunctionCollection) AddSymbols(name string, functions []*FunctionSymbol) error {
 	if functions == nil || len(functions) == 0 {
 		return errors.New("Symbol %s :: Symbol array with length 0")
 	}
 	v, e := collection.functions[name]
 	if !e {
-		v = &NamedFunctionContainer{make(map[int][]FunctionSymbol), make([]FunctionSymbol, 0), -1}
+		v = &NamedFunctionContainer{make(map[int][]*FunctionSymbol), make([]*FunctionSymbol, 0), -1}
 		collection.functions[name] = v
 	}
 	fns := v.fixedargs[len(functions[0].Args)]
@@ -159,7 +159,7 @@ func (collection *FunctionCollection) AddSymbols(name string, functions []Functi
 }
 
 //If returns null no function was found
-func (collection *FunctionCollection) FindSymbol(name string, args int) []FunctionSymbol {
+func (collection *FunctionCollection) FindSymbol(name string, args int) []*FunctionSymbol {
 	v, e := collection.functions[name]
 	if !e {
 		return nil

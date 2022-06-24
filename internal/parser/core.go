@@ -56,7 +56,7 @@ func (p *Parser) loadModuleAux(tks []Token, fn func(string) (map[string]Symbol, 
 	if e := unexpect(tks); e != nil {
 		return e
 	}*/
-	//TODO: Fix module inclusion
+	//FIXME: Fix module inclusion
 	/*f, s, e := fn(t.Data)
 	p.addSymbols(f)
 	p.currentScope().Merge(s)*/
@@ -112,14 +112,12 @@ func (p *Parser) parseReturn(block Block) error {
 		if e != nil {
 			return e
 		}
-		if ret == Void {
-			return errors.New("No value returned")
+		//Is valid returning void, in order to achive infinite recursion
+		if (*p.currentScope().ReturnType).Primitive() == VOID || CompareTypes(*p.currentScope().ReturnType, ret) {
+			p.currentScope().ReturnType = &ret
 		}
-		if p.currentScope().ReturnType.Primitive() == VOID || CompareTypes(p.currentScope().ReturnType, ret) {
-			p.currentScope().ReturnType = ret
-		}
-	} else if p.currentScope().ReturnType.Primitive() != VOID {
-		return errors.New(fmt.Sprintf("Expecting return type: %s", p.currentScope().ReturnType.TypeName()))
+	} else if (*p.currentScope().ReturnType).Primitive() != VOID {
+		return errors.New(fmt.Sprintf("Expecting return type: %s", (*p.currentScope().ReturnType).TypeName()))
 	}
 	p.addInstruction(MKInstruction(RET))
 	return nil

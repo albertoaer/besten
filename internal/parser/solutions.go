@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"crypto/sha1"
 	"errors"
 	"fmt"
 	"strconv"
@@ -21,13 +22,13 @@ func (p *Parser) solveFunctionCall(name string, operator bool, callers []OBJType
 		}
 	}
 	ins = s.Call
-	ret = s.Return
+	ret = *s.Return
 	return
 }
 
-func (p *Parser) findFunction(name string, operator bool, callers []OBJType) (sym FunctionSymbol, exists bool) {
+func (p *Parser) findFunction(name string, operator bool, callers []OBJType) (sym *FunctionSymbol, exists bool) {
 	exists = false
-	var vec []FunctionSymbol
+	var vec []*FunctionSymbol
 	if operator {
 		vec = p.currentScope().Operators.FindSymbol(name, len(callers))
 	} else {
@@ -71,7 +72,7 @@ func (p *Parser) solveLambdaTemplate(template FunctionTemplate) string {
 }
 
 //Remember: This function does not check if there is another function with that types
-func (p *Parser) generateFunctionFromTemplate(name string, operator bool, callers []OBJType) (sym FunctionSymbol, err error) {
+func (p *Parser) generateFunctionFromTemplate(name string, operator bool, callers []OBJType) (sym *FunctionSymbol, err error) {
 	var template *FunctionTemplate
 	if operator {
 		template = p.currentScope().Operators.FindTemplate(name, len(callers))
@@ -86,8 +87,20 @@ func (p *Parser) generateFunctionFromTemplate(name string, operator bool, caller
 		err = errors.New(fmt.Sprintf("There is %s symbol %s/%d for the requested arguments", symboltype, name, len(callers)))
 		return
 	}
-	compilename := generateUUID(name) + p.modulename
+	compilename := generateFnUUID(name, p.modulename, len(callers))
+
+	/*
+		Create function reference before function in order to avoid posible infinite dependency loops
+	*/
+	sym = &FunctionSymbol{CName: compilename, Call: runtime.MKInstruction(runtime.CLL, compilename), Return: p.rootscope.ReturnType, Args: callers}
+	if operator {
+		p.currentScope().Operators.AddSymbol(name, sym)
+	} else {
+		p.currentScope().Functions.AddSymbol(name, sym)
+	}
+
 	p.open(compilename)
+
 	for i := range template.Args {
 		//Stack, invert order
 		p.addInstruction(runtime.MKInstruction(runtime.SET, template.Args[len(template.Args)-i-1]))
@@ -100,7 +113,32 @@ func (p *Parser) generateFunctionFromTemplate(name string, operator bool, caller
 	p.addInstruction(runtime.MKInstruction(runtime.RET))
 	p.back()
 
-	sym = FunctionSymbol{CName: compilename, Call: runtime.MKInstruction(runtime.CLL, compilename), Return: p.rootscope.ReturnType, Args: callers}
-
 	return
+}
+
+var counters map[struct {
+	string
+	int
+}]*int = make(map[struct {
+	string
+	int
+}]*int)
+
+func generateFnUUID(name, module string, args int) string {
+	v, e := counters[struct {
+		string
+		int
+	}{name, args}]
+	if !e {
+		n := 0
+		v = &n
+		counters[struct {
+			string
+			int
+		}{name, args}] = v
+	}
+	modulesum := sha1.Sum([]byte(module))
+	result := fmt.Sprintf("%s/%d@%x%d", name, args, modulesum, *v)
+	(*v)++
+	return result
 }

@@ -71,11 +71,11 @@ type Literal struct {
 }
 
 var (
-	Void *Literal = &Literal{VOID, "Void"}
-	Int  *Literal = &Literal{INTEGER, "Int"}
-	Dec  *Literal = &Literal{DECIMAL, "Decimal"}
-	Str  *Literal = &Literal{STRING, "String"}
-	Any  *Literal = &Literal{ANY, "Any"}
+	Void OBJType = &Literal{VOID, "Void"}
+	Int  OBJType = &Literal{INTEGER, "Int"}
+	Dec  OBJType = &Literal{DECIMAL, "Decimal"}
+	Str  OBJType = &Literal{STRING, "String"}
+	Any  OBJType = &Literal{ANY, "Any"}
 )
 
 func (nc *Literal) TypeName() string {
@@ -104,11 +104,11 @@ type Container struct {
 	Name          string
 }
 
-func VecOf(t OBJType) *Container {
+func VecOf(t OBJType) OBJType {
 	return &Container{VECTOR, t, "Vector"}
 }
 
-func MapOf(t OBJType) *Container {
+func MapOf(t OBJType) OBJType {
 	return &Container{MAP, t, "Map"}
 }
 
@@ -138,7 +138,7 @@ type StructureContainer struct {
 	Name          string
 }
 
-func StructOf(fields map[string]OBJType, name string) *StructureContainer {
+func StructOf(fields map[string]OBJType, name string) OBJType {
 	return &StructureContainer{STRUCT, fields, name}
 }
 

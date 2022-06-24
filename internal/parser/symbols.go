@@ -6,38 +6,39 @@ import (
 	. "github.com/Besten/internal/runtime"
 )
 
-func mathOpInstruction(int_, float_ ICode) []FunctionSymbol {
-	return []FunctionSymbol{{"none", false, MKInstruction(int_), Int, []OBJType{Int, Int}}, {"none", false, MKInstruction(float_), Dec, []OBJType{Dec, Dec}}}
+func mathOpInstruction(int_, float_ ICode) []*FunctionSymbol {
+	return []*FunctionSymbol{{"none", false, MKInstruction(int_), &Int, []OBJType{Int, Int}},
+		{"none", false, MKInstruction(float_), &Dec, []OBJType{Dec, Dec}}}
 }
 
-func multiTypeInstruction(length int, returntype OBJType, matches map[OBJType]ICode) []FunctionSymbol {
-	ret := make([]FunctionSymbol, 0)
+func multiTypeInstruction(length int, returntype OBJType, matches map[OBJType]ICode) []*FunctionSymbol {
+	ret := make([]*FunctionSymbol, 0)
 	for k, v := range matches {
 		tp := make([]OBJType, length)
 		for i := range tp {
 			tp[i] = k
 		}
-		ret = append(ret, FunctionSymbol{
+		ret = append(ret, &FunctionSymbol{
 			"none",
 			false,
 			MKInstruction(v),
-			returntype,
+			&returntype,
 			tp,
 		})
 	}
 	return ret
 }
 
-func wrapOpInstruction(code ICode, tp OBJType, unary bool) []FunctionSymbol {
+func wrapOpInstruction(code ICode, tp OBJType, unary bool) []*FunctionSymbol {
 	tps := []OBJType{tp, tp}
 	if unary {
 		tps = []OBJType{tp}
 	}
-	return []FunctionSymbol{{"none", false, MKInstruction(code), tp, tps}}
+	return []*FunctionSymbol{{"none", false, MKInstruction(code), &tp, tps}}
 }
 
 func injectBuiltinFunctions(to *FunctionCollection) {
-	to.AddSymbol("print", FunctionSymbol{"none", false, MKInstruction(IFD, EmbeddedFunction{
+	to.AddSymbol("print", &FunctionSymbol{"none", false, MKInstruction(IFD, EmbeddedFunction{
 		Name:     "print",
 		ArgCount: 1,
 		Function: func(args ...Object) Object {
@@ -45,7 +46,7 @@ func injectBuiltinFunctions(to *FunctionCollection) {
 			return nil
 		},
 		Returns: false,
-	}), Void, []OBJType{Any}})
+	}), &Void, []OBJType{Any}})
 	to.AddSymbols("str", multiTypeInstruction(1, Str, map[OBJType]ICode{Str: NOP, Int: IRE, Dec: DRE}))
 }
 
@@ -72,7 +73,7 @@ type Scope struct {
 	Variables  map[string]*Variable //TODO: Auxiliar module like the function collection for functions
 	Functions  *FunctionCollection
 	Operators  *FunctionCollection
-	ReturnType OBJType
+	ReturnType *OBJType
 	parent     *Scope
 }
 
@@ -80,14 +81,14 @@ func NewScope() *Scope {
 	return &Scope{Variables: make(map[string]*Variable),
 		Functions:  NewFunctionCollection(),
 		Operators:  NewFunctionCollection(),
-		ReturnType: Void, parent: nil}
+		ReturnType: &Void, parent: nil}
 }
 
 func (s *Scope) Open() *Scope {
 	ns := &Scope{Variables: make(map[string]*Variable),
 		Functions:  s.Functions.Fork(),
 		Operators:  s.Operators.Fork(),
-		ReturnType: Void, parent: s}
+		ReturnType: &Void, parent: s}
 	for k, v := range s.Variables {
 		ns.Variables[k] = v
 	}
