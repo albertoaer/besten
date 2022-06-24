@@ -22,7 +22,7 @@ type syntaxLiteral struct {
 
 func (s *syntaxLiteral) runIntoStack(p *Parser, stack *[]Instruction) (OBJType, error) {
 	var ins Instruction
-	var toret OBJType = Void
+	var toret OBJType
 	switch s.kind {
 	case StringToken:
 		toret = Str
@@ -31,14 +31,14 @@ func (s *syntaxLiteral) runIntoStack(p *Parser, stack *[]Instruction) (OBJType, 
 		toret = Int
 		i, e := strconv.Atoi(s.value)
 		if e != nil {
-			return Void, e
+			return nil, e
 		}
 		ins = MKInstruction(PSH, i)
 	case DecimalToken:
 		toret = Dec
 		f, e := strconv.ParseFloat(s.value, 64)
 		if e != nil {
-			return Void, e
+			return nil, e
 		}
 		ins = MKInstruction(PSH, f)
 	case KeywordToken:
@@ -55,7 +55,7 @@ func (s *syntaxLiteral) runIntoStack(p *Parser, stack *[]Instruction) (OBJType, 
 		return nil, errors.New("Wrong literal")
 	}
 	*stack = append(*stack, ins)
-	return toret, nil
+	return constructorFor(toret, p, stack)
 }
 
 func isLiteral(tk Token) bool {
@@ -87,7 +87,7 @@ type syntaxAtom struct {
 
 func (s *syntaxAtom) runIntoStack(p *Parser, stack *[]Instruction) (OBJType, error) {
 	*stack = append(*stack, MKInstruction(PSH, s.value))
-	return Atom, nil
+	return constructorFor(Atom, p, stack)
 }
 
 type syntaxTupleDefinition struct {
@@ -105,7 +105,7 @@ func (s *syntaxTupleDefinition) runIntoStack(p *Parser, stack *[]Instruction) (O
 		tps[len(s.elements)-i-1] = t
 	}
 	*stack = append(*stack, MKInstruction(CSE, len(s.elements)))
-	return TupleOf(tps), nil
+	return constructorFor(TupleOf(tps), p, stack)
 }
 
 type syntaxConstantAccess struct {
@@ -252,7 +252,8 @@ type syntaxCast struct {
 }
 
 func (s *syntaxCast) runIntoStack(p *Parser, stack *[]Instruction) (OBJType, error) {
-	o, e := s.origin.runIntoStack(p, stack)
+	buffer := make([][]Instruction, 2)
+	o, e := s.origin.runIntoStack(p, &buffer[0])
 	if e != nil {
 		return nil, e
 	}
@@ -264,11 +265,20 @@ func (s *syntaxCast) runIntoStack(p *Parser, stack *[]Instruction) (OBJType, err
 	if e != nil {
 		return nil, e
 	}
-	var err error = nil
-	if !checkCompatibility(o, *n) {
-		err = fmt.Errorf("%s is not compatible with %s", Repr(o), Repr(*n))
+	if buffer[1], e = (*n).Create(); e != nil {
+		return nil, e
 	}
-	return *n, err
+	var tp OBJType
+	result := make([]Instruction, 0)
+	if tp, e = p.solveFunctionCall("static_cast", false, []OBJType{o, *n}, buffer, &result); e != nil {
+		return nil, e
+	}
+	if len(result) > len(buffer[0])+len(buffer[1]) { //Only append type generation if there was a function call
+		*stack = append(*stack, result...)
+	} else {
+		*stack = append(*stack, buffer[0]...)
+	}
+	return tp, nil
 }
 
 type syntaxCall struct {
@@ -408,7 +418,7 @@ func (s *syntaxTypeCreation) runIntoStack(p *Parser, stack *[]Instruction) (OBJT
 		return nil, e
 	}
 	*stack = append(*stack, i...)
-	return obj, nil
+	return constructorFor(obj, p, stack)
 }
 
 type syntaxHighLevelCall struct {
@@ -449,6 +459,11 @@ type syntaxBranch interface {
 
 type syntaxBranchSet interface {
 	runIntoStackSet(p *Parser, stack *[]Instruction, branch syntaxBranch) error
+}
+
+//Only valid for one argument passed to the constructor
+func constructorFor(argument OBJType, p *Parser, stack *[]Instruction) (obj OBJType, err error) {
+	return p.solveFunctionCall("constructor", false, []OBJType{argument}, [][]Instruction{make([]Instruction, 0)}, stack)
 }
 
 func getNameAndScope(p *Parser, route []string) (name string, scope *Scope, err error) {

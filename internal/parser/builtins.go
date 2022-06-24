@@ -47,6 +47,20 @@ func wrapOpInstruction(code ICode, tp OBJType, unary bool) *FunctionSymbol {
 }
 
 func injectBuiltinFunctions(to *FunctionCollection) {
+	to.AddDynamicSymbol("constructor", func(o []OBJType) *FunctionSymbol {
+		if len(o) == 1 {
+			/*DEFAULT CONSTRUCTOR FOR ANY TYPE*/
+			return &FunctionSymbol{"none", false, make([]Instruction, 0), CloneType(o[0]), o}
+		}
+		return nil
+	})
+	to.AddDynamicSymbol("static_cast", func(o []OBJType) *FunctionSymbol {
+		if len(o) == 2 && checkCompatibility(o[0], o[1]) {
+			/*DEFAULT CAST FOR ANY TWO TYPES*/
+			return &FunctionSymbol{"none", false, make([]Instruction, 0), CloneType(o[1]), o}
+		}
+		return nil
+	})
 	to.AddSymbol("print", &FunctionSymbol{"none", true, MKInstruction(IFD, EmbeddedFunction{
 		Name:     "print",
 		ArgCount: 1,
