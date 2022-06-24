@@ -158,7 +158,7 @@ func (proc *Process) DirectInvoke(fn EmbeddedFunction) {
 
 func boolNum(b bool) int {
 	if b {
-		return 1
+		return -1
 	}
 	return 0
 }
