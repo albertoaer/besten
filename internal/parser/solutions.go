@@ -122,7 +122,9 @@ func (p *Parser) generateFunctionFromRawTemplate(name string, operator bool, cal
 	if err = p.currentScope().CheckClose(); err != nil {
 		return
 	}
-	p.addInstruction(runtime.MKInstruction(runtime.RET))
+	if p.getInstruction(p.fragmentSize()-1).Code != runtime.RET {
+		p.addInstruction(runtime.MKInstruction(runtime.RET))
+	}
 	p.backToFragment()
 	return
 }

@@ -70,6 +70,12 @@ func (p *Parser) addInstruction(instruction Instruction) int {
 	return len(p.symbols[p.activeFragment()].Source) - 1
 }
 
+//You must prevail in the same fragment to get an instruction
+func (p *Parser) getInstruction(pos int) Instruction {
+	s := p.symbols[p.activeFragment()]
+	return s.Source[pos]
+}
+
 //You must prevail in the same fragment to edit an instruction
 func (p *Parser) editInstruction(pos int, instruction Instruction) {
 	s := p.symbols[p.activeFragment()]
