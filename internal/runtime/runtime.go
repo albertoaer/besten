@@ -17,18 +17,18 @@ func MakeVec(items ...Object) VecT {
 
 type Instruction struct {
 	Code     ICode
-	operands *[2]Object
+	operands *[4]Object
 	sz       uint8
 }
 
 func MKInstruction(code ICode, operands ...Object) Instruction {
-	if len(operands) > 2 {
-		panic("Instructions can only have up to 2 arguments")
+	if len(operands) > 4 {
+		panic("Instructions can only have up to 4 arguments")
 	}
 	if code >= LDOP {
 		panic("Trying to create instruction with invalid opcode")
 	}
-	var opr [2]Object
+	var opr [4]Object
 	copy(opr[:], operands)
 	return Instruction{code, &opr, uint8(len(operands))}
 }

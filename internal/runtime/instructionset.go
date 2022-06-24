@@ -72,8 +72,6 @@ const (
 	CLL = 120 //Jumps into symbol address and saves actual address
 	JMP = 121 //Jumps into symbol address
 	RET = 122 //Return to last address in the stack
-	SKT = 123 //Skips next line if true
-	SKF = 124 //Skips next line if false
 	MVR = 125 //Moves pc relative to position
 	MVT = 126 //Moves pc relative to position if true
 	MVF = 127 //Moves pc relative to position if false
@@ -90,8 +88,6 @@ const (
 	SVI = 167 //Set vector item at position
 	DMI = 168 //Delete map item
 	CSE = 169 //Collapse stack elements
-	WTP = 170 //Work to push
-	PTW = 171 //Push to work
 
 	//SIZE
 
@@ -186,25 +182,21 @@ func init() {
 	opNumTable[CLL] = 1
 	opNumTable[JMP] = 1
 	opNumTable[RET] = 0
-	opNumTable[SKT] = 1
-	opNumTable[SKF] = 1
 	opNumTable[MVR] = 1
 	opNumTable[MVT] = 2
 	opNumTable[MVF] = 2
 
 	//MAPS AND VECTORS
 	opNumTable[KVC] = 0
-	opNumTable[PRP] = 1
-	opNumTable[ATT] = 2
-	opNumTable[EXK] = 1
+	opNumTable[PRP] = 2
+	opNumTable[ATT] = 3
+	opNumTable[EXK] = 2
 	opNumTable[VEC] = 0
-	opNumTable[ACC] = 1
-	opNumTable[APP] = 1
-	opNumTable[SVI] = 2
-	opNumTable[DMI] = 1
+	opNumTable[ACC] = 2
+	opNumTable[APP] = 2
+	opNumTable[SVI] = 3
+	opNumTable[DMI] = 2
 	opNumTable[CSE] = 1
-	opNumTable[WTP] = 0
-	opNumTable[PTW] = 1
 
 	//SIZE
 	opNumTable[SOS] = 1

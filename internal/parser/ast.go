@@ -94,7 +94,7 @@ func (s *syntaxTupleDefinition) runIntoStack(p *Parser, stack *[]Instruction) (O
 		}
 		tps = append(tps, t)
 	}
-	*stack = append(*stack, MKInstruction(CSE, len(s.elements)), MKInstruction(WTP))
+	*stack = append(*stack, MKInstruction(CSE, len(s.elements)))
 	return TupleOf(tps), nil
 }
 
@@ -122,7 +122,7 @@ func (s *syntaxConstantAccess) runIntoStack(p *Parser, stack *[]Instruction) (OB
 	if s.idx < 0 || len(elems) <= s.idx {
 		return nil, errors.New(fmt.Sprintf("Invalid index %d for %s", s.idx, Repr(r)))
 	}
-	*stack = append(*stack, MKInstruction(PTW), MKInstruction(ACC, s.idx))
+	*stack = append(*stack, MKInstruction(ACC, nil, s.idx))
 	return elems[s.idx], nil
 }
 
@@ -234,7 +234,9 @@ func (s *syntaxCall) runIntoStack(p *Parser, stack *[]Instruction) (OBJType, err
 		}
 	}
 	ins, ret, err := p.solveFunctionCall(s.relation.route[0], false, ops)
-	*stack = append(*stack, ins...)
+	if err == nil {
+		*stack = append(*stack, ins...)
+	}
 	return ret, err
 }
 
@@ -256,7 +258,9 @@ func (s *syntaxOpCall) runIntoStack(p *Parser, stack *[]Instruction) (OBJType, e
 		}
 	}
 	ins, ret, err := p.solveFunctionCall(s.operator, true, ops)
-	*stack = append(*stack, ins...)
+	if err == nil {
+		*stack = append(*stack, ins...)
+	}
 	return ret, err
 }
 
@@ -303,10 +307,12 @@ func (s *syntaxHighLevelCall) runIntoStack(p *Parser, stack *[]Instruction) (OBJ
 		}
 	}
 	ins, ret, err := p.solveFunctionCall(s.relation.route[0], false, ops)
-	if s.owner.inReturn && ins[len(ins)-1].Code == CLL {
-		ins[len(ins)-1].Code = JMP
+	if err == nil {
+		if s.owner.inReturn && ins[len(ins)-1].Code == CLL {
+			ins[len(ins)-1].Code = JMP
+		}
+		*stack = append(*stack, ins...)
 	}
-	*stack = append(*stack, ins...)
 	return ret, err
 }
 

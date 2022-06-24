@@ -44,17 +44,35 @@ func (fs *FunctionStack) Clone() *FunctionStack {
 }
 
 func (fs *FunctionStack) a(x Instruction) Object {
-	if x.sz < 1 {
+	o := x.operands[0]
+	if o == nil {
 		return fs.Pop()
 	}
-	return x.operands[0]
+	return o
 }
 
 func (fs *FunctionStack) b(x Instruction) Object {
-	if x.sz < 2 {
+	o := x.operands[1]
+	if o == nil {
 		return fs.Pop()
 	}
-	return x.operands[1]
+	return o
+}
+
+func (fs *FunctionStack) c(x Instruction) Object {
+	o := x.operands[2]
+	if o == nil {
+		return fs.Pop()
+	}
+	return o
+}
+
+func (fs *FunctionStack) d(x Instruction) Object {
+	o := x.operands[3]
+	if o == nil {
+		return fs.Pop()
+	}
+	return o
 }
 
 type Environment struct {

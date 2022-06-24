@@ -24,7 +24,6 @@ type Process struct {
 	callstack     *CallStack
 	env           *Environment
 	locals        *Locals
-	workingObject Object //Manipulable object
 }
 
 /*
@@ -47,7 +46,7 @@ func (vm *VM) spawn(parent PID, fr string, stack *FunctionStack) (PID, error) {
 		return nil, err
 	}
 	process := &Process{vm, parent, nil, 0, sym, stack,
-		make(chan error), callstack, env, locals, nil}
+		make(chan error), callstack, env, locals}
 	go process.run()
 	return process, nil
 }
@@ -132,18 +131,6 @@ func (proc *Process) ReturnLastPoint() {
 	}
 }
 
-func (proc *Process) CallFragment(name string) {
-	proc.callstack.Insert(proc.pc, proc.symbol)
-	if proc.symbol.Name != name {
-		proc.symbol = proc.machine.symbols[name]
-	}
-	proc.env, proc.locals = proc.callstack.GetAvailableItems()
-	if err := proc.env.ForCall(proc.functionstack, proc.symbol.BuiltInfo.Args, proc.symbol.BuiltInfo.Varargs); err != nil {
-		panic(err)
-	}
-	proc.pc = 0
-}
-
 func (proc *Process) JumpToFragment(name string) {
 	if proc.symbol.Name != name {
 		proc.symbol = proc.machine.symbols[name]
@@ -171,22 +158,6 @@ func (proc *Process) DirectInvoke(fn EmbeddedFunction) {
 	if fn.Returns {
 		proc.functionstack.Push(r)
 	}
-}
-
-func (proc *Process) EditState() {
-	proc.workingObject = proc.state
-}
-
-func (proc *Process) SaveState() {
-	proc.state = proc.workingObject
-}
-
-func (proc *Process) SetWorkingObject(obj Object) {
-	proc.workingObject = obj
-}
-
-func (proc *Process) GetWorkingObject() Object {
-	return proc.workingObject
 }
 
 func boolNum(b bool) int {
@@ -324,19 +295,13 @@ func (proc *Process) run() {
 				fstack.Push(y)
 			//CONTROL
 			case CLL:
-				proc.CallFragment(fstack.a(ins).(string))
+				proc.callstack.Insert(proc.pc, proc.symbol)
+				proc.env, proc.locals = proc.callstack.GetAvailableItems()
+				proc.JumpToFragment(fstack.a(ins).(string))
 			case JMP:
 				proc.JumpToFragment(fstack.a(ins).(string))
 			case RET:
 				proc.ReturnLastPoint()
-			case SKT:
-				if fstack.a(ins).(int) != 0 {
-					proc.pc++
-				}
-			case SKF:
-				if fstack.a(ins).(int) == 0 {
-					proc.pc++
-				}
 			case MVR:
 				proc.pc += fstack.a(ins).(int)
 			case MVT:
@@ -352,28 +317,28 @@ func (proc *Process) run() {
 			switch code {
 			//MAPS AND VECTORS
 			case KVC:
-				proc.SetWorkingObject(make(MapT))
+				fstack.Push(make(MapT))
 			case PRP:
-				fstack.Push((proc.GetWorkingObject().(MapT))[fstack.a(ins).(string)])
+				fstack.Push((fstack.a(ins).(MapT))[fstack.b(ins).(string)])
 			case ATT:
-				(proc.GetWorkingObject().(MapT))[fstack.a(ins).(string)] = fstack.b(ins)
+				(fstack.a(ins).(MapT))[fstack.b(ins).(string)] = fstack.c(ins)
 			case EXK:
-				_, exists := (proc.GetWorkingObject().(MapT))[fstack.a(ins).(string)]
+				_, exists := (fstack.a(ins).(MapT))[fstack.b(ins).(string)]
 				fstack.Push(boolNum(exists))
 			case VEC:
 				vec := make([]Object, 0)
 				var vecref VecT = &vec
-				proc.SetWorkingObject(vecref)
+				fstack.Push(vecref)
 			case ACC:
-				fstack.Push((*(proc.GetWorkingObject().(VecT)))[fstack.a(ins).(int)])
+				fstack.Push((*(fstack.a(ins).(VecT)))[fstack.b(ins).(int)])
 			case APP:
-				vec := proc.GetWorkingObject().(VecT)
+				vec := fstack.a(ins).(VecT)
 				*vec = append(*vec, fstack.b(ins))
 			case SVI:
-				vec := *(proc.GetWorkingObject().(VecT))
-				vec[fstack.a(ins).(int)] = fstack.b(ins)
+				vec := *(fstack.a(ins).(VecT))
+				vec[fstack.b(ins).(int)] = fstack.c(ins)
 			case DMI:
-				m := proc.GetWorkingObject().(MapT)
+				m := fstack.a(ins).(MapT)
 				delete(m, fstack.a(ins).(string))
 			case CSE:
 				vec := make([]Object, 0)
@@ -386,11 +351,7 @@ func (proc *Process) run() {
 					res := fstack.Pop()
 					*vecref = append(*vecref, res)
 				}
-				proc.SetWorkingObject(vecref)
-			case WTP:
-				fstack.Push(proc.GetWorkingObject())
-			case PTW:
-				proc.SetWorkingObject(fstack.a(ins))
+				fstack.Push(vecref)
 			//SIZE
 			case SOS:
 				fstack.Push(len(fstack.a(ins).(string)))

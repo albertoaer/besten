@@ -97,10 +97,10 @@ func injectBuiltinOperators(to *FunctionCollection) {
 			var ins []Instruction
 			var ret *OBJType
 			if o[0].Primitive() == VECTOR && o[1].Primitive() == INTEGER {
-				ins = []Instruction{MKInstruction(PTW), MKInstruction(ACC)}
+				ins = []Instruction{MKInstruction(ACC)}
 				ret = CloneType(o[0].Items())
 			} else if o[0].Primitive() == MAP && o[1].Primitive() == STRING {
-				ins = []Instruction{MKInstruction(ATT), MKInstruction(ACC)}
+				ins = []Instruction{MKInstruction(ATT)}
 				ret = CloneType(o[0].Items())
 			} else if o[0].Primitive() == STRING && o[1].Primitive() == INTEGER {
 				ins = MKInstruction(CAI).Fragment()
@@ -117,7 +117,7 @@ func injectBuiltinOperators(to *FunctionCollection) {
 		if len(o) == 2 {
 			var ins []Instruction
 			if o[1].Primitive() == VECTOR && CompareTypes(o[0], o[1].Items()) {
-				ins = []Instruction{MKInstruction(SWT), MKInstruction(PTW), MKInstruction(APP)}
+				ins = []Instruction{MKInstruction(SWT), MKInstruction(APP)}
 			} else {
 				return nil
 			}
