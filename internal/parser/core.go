@@ -520,6 +520,11 @@ func (p *Parser) parseByKeyword(name string, block Block, scp ScopeCtx) error {
 			return p.parseFor(block)
 		case "var", "val":
 			return p.parseDefinition(block, name == "val")
+		case "do":
+			if err := unexpect(discardOne(block.Tokens)); err != nil {
+				return err
+			}
+			return p.parseBlocks(block.Children, scp)
 		}
 	}
 	if scp == Loop {
