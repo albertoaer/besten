@@ -89,6 +89,7 @@ const (
 	DMI = 168 //Delete map item
 	PFV = 169 //Pop from vector
 	CSE = 171 //Collapse stack elements
+	EIS = 172 //Expand into stack
 
 	//SIZE
 
@@ -199,6 +200,7 @@ func init() {
 	opNumTable[DMI] = 2
 	opNumTable[PFV] = 1
 	opNumTable[CSE] = 1
+	opNumTable[EIS] = 2
 
 	//SIZE
 	opNumTable[SOS] = 1

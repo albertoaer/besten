@@ -26,6 +26,17 @@ func (fs *FunctionStack) Push(o Object) {
 	fs.index += 1
 }
 
+func (fs *FunctionStack) PushN(o []Object) {
+	if fs.index >= len(fs.data) {
+		//fs.data = append(fs.data, nil)
+		panic("Unexpected situation, function stack overflow")
+	}
+	for i := 0; i < len(o); i++ {
+		fs.data[fs.index+i] = o[len(o)-i-1]
+	}
+	fs.index += len(o)
+}
+
 func (fs *FunctionStack) Pop() Object {
 	if fs.index == 0 {
 		panic(errors.New("Void stack"))

@@ -170,7 +170,7 @@ Run zone
 func (proc *Process) run() {
 	defer func() {
 		if e := recover(); e != nil {
-			proc.done <- errors.New(fmt.Sprintf("[fr: %s, pc : %d, icode : %d] Runtime error: %v",
+			proc.done <- errors.New(fmt.Sprintf("[fr : %s, pc : %d, icode : %d] Runtime error: %v",
 				proc.symbol.Name, proc.pc-1, proc.symbol.Source[proc.pc-1].Code, e))
 		} else {
 			proc.done <- nil
@@ -317,7 +317,8 @@ func (proc *Process) run() {
 			case PRP:
 				fstack.Push((fstack.a(ins).(MapT))[fstack.b(ins).(string)])
 			case ATT:
-				(fstack.a(ins).(MapT))[fstack.b(ins).(string)] = fstack.c(ins)
+				key, val, m := fstack.a(ins).(string), fstack.b(ins), fstack.c(ins).(MapT)
+				(m)[key] = val
 			case EXK:
 				_, exists := (fstack.a(ins).(MapT))[fstack.b(ins).(string)]
 				fstack.Push(boolNum(exists))
@@ -348,6 +349,9 @@ func (proc *Process) run() {
 				vec := fstack.PopN(sz)
 				var vecref VecT = &vec
 				fstack.Push(vecref)
+			case EIS:
+				vec := fstack.a(ins).(VecT)
+				fstack.PushN(*vec)
 			//SIZE
 			case SOS:
 				fstack.Push(len(fstack.a(ins).(string)))

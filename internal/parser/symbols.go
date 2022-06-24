@@ -65,6 +65,12 @@ func injectBuiltinFunctions(to *FunctionCollection) {
 		},
 		Returns: true,
 	}).Fragment(), CloneType(Str), []OBJType{Any}})
+	to.AddDynamicSymbol("stref", func(o []OBJType) *FunctionSymbol {
+		if len(o) == 1 {
+			return &FunctionSymbol{"none", false, []Instruction{MKInstruction(PSH, Repr(o[0]))}, CloneType(Str), []OBJType{o[0].Items()}}
+		}
+		return nil
+	})
 	to.AddSymbol("double", &FunctionSymbol{"none", false, MKInstruction(ITD).Fragment(), CloneType(Dec), []OBJType{Int}})
 	to.AddSymbol("int", &FunctionSymbol{"none", false, MKInstruction(DTI).Fragment(), CloneType(Int), []OBJType{Dec}})
 	to.AddSymbols("str", multiTypeInstruction(1, Str, map[OBJType]ICode{Str: NOP, Int: IRE, Dec: DRE}))
@@ -114,7 +120,7 @@ func injectBuiltinOperators(to *FunctionCollection) {
 				ins = []Instruction{MKInstruction(ACC)}
 				ret = CloneType(o[0].Items())
 			} else if o[0].Primitive() == MAP && o[1].Primitive() == STRING {
-				ins = []Instruction{MKInstruction(ATT)}
+				ins = []Instruction{MKInstruction(PRP)}
 				ret = CloneType(o[0].Items())
 			} else if o[0].Primitive() == STRING && o[1].Primitive() == INTEGER {
 				ins = MKInstruction(CAI).Fragment()
@@ -127,11 +133,12 @@ func injectBuiltinOperators(to *FunctionCollection) {
 		return nil
 	})
 	to.AddDynamicSymbol("->", func(o []OBJType) *FunctionSymbol {
-		//Can be implemented by symbol switch but is useful to be this way in order to future custom type generation
 		if len(o) == 2 {
 			var ins []Instruction
 			if o[1].Primitive() == VECTOR && CompareTypes(o[0], o[1].Items()) {
 				ins = []Instruction{MKInstruction(SWT), MKInstruction(APP)}
+			} else if o[1].Primitive() == MAP && CompareTypes(o[0], TupleOf([]OBJType{Str, o[1].Items()})) {
+				ins = []Instruction{MKInstruction(EIS), MKInstruction(ATT)}
 			} else {
 				return nil
 			}
