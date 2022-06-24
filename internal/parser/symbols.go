@@ -3,6 +3,7 @@ package parser
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	. "github.com/Besten/internal/runtime"
 )
@@ -47,7 +48,17 @@ func injectBuiltinFunctions(to *FunctionCollection) {
 			return nil
 		},
 		Returns: false,
-	}).Fragment(), &Void, []OBJType{Any}})
+	}).Fragment(), CloneType(Void), []OBJType{Any}})
+	to.AddSymbol("clock", &FunctionSymbol{"none", false, MKInstruction(IFD, EmbeddedFunction{
+		Name:     "clock",
+		ArgCount: 0,
+		Function: func(args []Object) Object {
+			return int(time.Now().UnixMicro())
+		},
+		Returns: true,
+	}).Fragment(), CloneType(Int), []OBJType{}})
+	to.AddSymbol("double", &FunctionSymbol{"none", false, MKInstruction(ITD).Fragment(), CloneType(Dec), []OBJType{Int}})
+	to.AddSymbol("int", &FunctionSymbol{"none", false, MKInstruction(DTI).Fragment(), CloneType(Int), []OBJType{Dec}})
 	to.AddSymbols("str", multiTypeInstruction(1, Str, map[OBJType]ICode{Str: NOP, Int: IRE, Dec: DRE}))
 	to.AddSymbols("len", multiTypeInstruction(1, Int, map[OBJType]ICode{Str: SOS, MapOf(Any): SOM, VecOf(Any): SOV}))
 }
@@ -178,7 +189,7 @@ func (s *Scope) GetVariableIns(name string) (Instruction, OBJType, error) {
 func (s *Scope) SetVariableIns(name string, t OBJType) (Instruction, error) {
 	if v, e := s.Variables[name]; e {
 		if v.Asigned && !v.Mutable {
-			return MKInstruction(NOP), errors.New(fmt.Sprintf("Trying to reasign a constant: %s", name))
+			return MKInstruction(NOP), errors.New(fmt.Sprintf("Trying to reassign a constant: %s", name))
 		}
 		if !CompareTypes(v.Type, t) {
 			return MKInstruction(NOP), errors.New("Invalid type")
