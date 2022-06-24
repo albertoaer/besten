@@ -8,22 +8,28 @@ import (
 
 type PID *Process
 
+type RescuePoint struct {
+	fragment  string
+	stack     int
+	callstack int
+}
+
 type VM struct {
 	symbols  map[string]*Symbol //Loaded instructions
 	embedded map[string]EmbeddedFunction
 }
 
 type Process struct {
-	machine       *VM    //The virtual machine were the process is running on
-	parent        PID    //Parent process (the one who called)
-	state         Object //Object state
-	pc            int    //Current instruction
+	machine       *VM //The virtual machine were the process is running on
+	parent        PID //Parent process (the one who called)
+	pc            int //Current instruction
 	symbol        *Symbol
 	functionstack *FunctionStack //Function stack
 	done          chan error     //Is Process done?
 	callstack     *CallStack
 	env           *Environment
 	locals        *Locals
+	rescues       []RescuePoint
 }
 
 /*
@@ -43,9 +49,9 @@ func (vm *VM) spawn(parent PID, fr string, stack *FunctionStack) (PID, error) {
 	callstack := NewCallStack(20000)
 	env, locals := callstack.GetAvailableItems()
 	env.ForCall(stack, sym.Args)
-	process := &Process{vm, parent, nil, 0, sym, stack,
-		make(chan error), callstack, env, locals}
-	go process.run()
+	process := &Process{vm, parent, 0, sym, stack,
+		make(chan error), callstack, env, locals, make([]RescuePoint, 0)}
+	go process.launch()
 	return process, nil
 }
 
@@ -166,13 +172,33 @@ func iToBool(i int) int {
 Run zone
 */
 
+func (proc *Process) launch() {
+	for {
+		proc.run()
+		if proc.symbol == nil {
+			break
+		}
+	}
+}
+
 func (proc *Process) run() {
 	defer func() {
 		if e := recover(); e != nil {
-			proc.done <- errors.New(fmt.Sprintf("[fr : %s, pc : %d, icode : %d] Runtime error: %v",
-				proc.symbol.Name, proc.pc-1, proc.symbol.Source[proc.pc-1].Code, e))
+			if len(proc.rescues) == 0 {
+				proc.done <- errors.New(fmt.Sprintf("[fr : %s, pc : %d, icode : %d] Runtime error: %v",
+					proc.symbol.Name, proc.pc-1, proc.symbol.Source[proc.pc-1].Code, e))
+				proc.symbol = nil
+			} else {
+				rescue := proc.rescues[len(proc.rescues)-1]
+				proc.rescues = proc.rescues[0 : len(proc.rescues)-1]
+				proc.functionstack.index = rescue.stack
+				proc.callstack.idx = rescue.callstack
+				proc.functionstack.Push(fmt.Sprintf("%v", e))
+				proc.JumpToFragment(rescue.fragment)
+			}
 		} else {
 			proc.done <- nil
+			proc.symbol = nil
 		}
 	}()
 	fstack := proc.functionstack
@@ -386,10 +412,13 @@ func (proc *Process) run() {
 		default:
 			switch code {
 			//STATE
-			case SWR:
-				proc.state = fstack.a(ins)
-			case SRE:
-				fstack.Push(proc.state)
+			case TE:
+				panic(fstack.a(ins))
+			case RE:
+				proc.rescues = append(proc.rescues, RescuePoint{fstack.a(ins).(string),
+					fstack.index, proc.callstack.idx})
+			case DR:
+				proc.rescues = proc.rescues[0 : len(proc.rescues)-1]
 			//Interaction
 			case INV:
 				proc.Invoke(fstack.a(ins).(string))

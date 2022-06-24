@@ -105,12 +105,13 @@ const (
 	SOV = 181 //Size of vector
 	SOM = 182 //Size of map
 
-	//STATE
+	//EXCEPTIONS
 
-	SWR = 200 //State write
-	SRE = 201 //State read
+	TE = 200 //Throw exception
+	RE = 201 //Rescue exception, sets an exception rescue fragment, and a exported local variable
+	DR = 202 //Discard rescue, removes rescue
 
-	//Threads
+	//THREADS
 
 	FRK = 240 //Forks, next line will run in a different thread (stack is copied) and adds pid to father thread
 	ELL = 241 //Ends life line, stops current thread
