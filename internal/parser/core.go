@@ -115,6 +115,9 @@ func (p *Parser) parseDefinition(block Block, constant bool) error {
 	if e != nil {
 		return e
 	}
+	if ret.Primitive() == VOID {
+		return errors.New("Void can not be assigned as a value")
+	}
 	p.currentScope().CreateVariable(id.Data, ret, !constant, false)
 	ins, e := p.currentScope().SetVariableIns(id.Data, ret)
 	if e != nil {
