@@ -186,11 +186,11 @@ func (m *Modules) FileParser(requester int, path string) (*parser.Parser, error)
 	}
 	filesrc := fileSource{path}
 	blocks, err := LexerFor(&filesrc).GetBlocks()
-	if err != nil {
-		return nil, err
+	var module_parser *parser.Parser
+	if err == nil {
+		module_parser = parser.NewParser(path, md.identifier, m)
+		err = module_parser.ParseCode(blocks)
 	}
-	module_parser := parser.NewParser(path, md.identifier, m)
-	err = module_parser.ParseCode(blocks)
 	md.exclusion.Lock()
 	md.available = true
 	md.parser = module_parser
