@@ -49,18 +49,18 @@ func (vm *VM) spawn(parent PID, fr string, stack *FunctionStack) (PID, error) {
 	callstack := NewCallStack(20000)
 	env, locals := callstack.GetAvailableItems()
 	env.ForCall(stack, sym.Args)
-	process := &Process{vm, parent, 0, sym, stack,
+	process := &Process{vm, parent, 0, sym, NewFunctionStack(10000),
 		make(chan error), callstack, env, locals, make([]RescuePoint, 0)}
 	go process.launch()
 	return process, nil
 }
 
 func (vm *VM) Spawn(fr string) (PID, error) {
-	return vm.spawn(nil, fr, NewFunctionStack(10000))
+	return vm.spawn(nil, fr, NewFunctionStack(0))
 }
 
 func (vm *VM) InitSpawn(fr string, stack []Object) (PID, error) {
-	fs := NewFunctionStack(10000)
+	fs := NewFunctionStack(uint(len(stack)))
 	if stack != nil {
 		for _, o := range stack {
 			fs.Push(o)
@@ -312,6 +312,8 @@ func (proc *Process) run() {
 				fstack.PushN(*fstack.b(ins).(VecT))
 			}
 			proc.JumpToFragment(name)
+		case CLT:
+			proc.machine.spawn(proc, fstack.a(ins).(string), fstack)
 		case JMP, JMX:
 			name := fstack.a(ins).(string)
 			if code == CLX {

@@ -59,52 +59,45 @@ const (
 
 	CLL = 30 //Jumps into symbol address and saves actual address
 	CLX = 31 //Call auxiliar, same as CLL but expands a vector
-	JMP = 32 //Jumps into symbol address
-	JMX = 33 //Jump auxiliar, same as JMP but expands a vector
-	RET = 34 //Return to last address in the stack
-	MVR = 35 //Moves pc relative to position
-	MVT = 36 //Moves pc relative to position if true
-	MVF = 37 //Moves pc relative to position if false
+	CLT = 32 //Call in new thread, generates a thread for the new function
+	JMP = 33 //Jumps into symbol address
+	JMX = 34 //Jump auxiliar, same as JMP but expands a vector
+	RET = 35 //Return to last address in the stack
+	MVR = 36 //Moves pc relative to position
+	MVT = 37 //Moves pc relative to position if true
+	MVF = 38 //Moves pc relative to position if false
 
 	//MAPS AND VECTORS
 
-	KVC = 38 //Creates a map
-	PRP = 39 //Gets value from map
-	ATT = 40 //Attaches value to map
-	VEC = 41 //Creates a vector
-	ACC = 42 //Accesses position of vector
-	APP = 43 //Appends element at the end of a vector
-	SVI = 44 //Set vector item at position
-	DMI = 45 //Delete map item
-	PFV = 46 //Pop from vector
-	CSE = 47 //Collapse stack elements
-	EIS = 48 //Expand into stack
+	KVC = 39 //Creates a map
+	PRP = 40 //Gets value from map
+	ATT = 41 //Attaches value to map
+	VEC = 42 //Creates a vector
+	ACC = 43 //Accesses position of vector
+	APP = 44 //Appends element at the end of a vector
+	SVI = 45 //Set vector item at position
+	DMI = 46 //Delete map item
+	PFV = 47 //Pop from vector
+	CSE = 48 //Collapse stack elements
+	EIS = 49 //Expand into stack
 
 	//SIZE
 
-	SOS = 49 //Size of string
-	SOV = 50 //Size of vector
-	SOM = 51 //Size of map
+	SOS = 50 //Size of string
+	SOV = 51 //Size of vector
+	SOM = 52 //Size of map
 
 	//EXCEPTIONS
 
-	TE = 52 //Throw exception
-	RE = 53 //Rescue exception, sets an exception rescue fragment, and a exported local variable
-	DR = 54 //Discard rescue, removes rescue
-
-	//THREADS
-
-	FRK = 240 //Forks, next line will run in a different thread (stack is copied) and adds pid to father thread
-	ELL = 241 //Ends life line, stops current thread
-	FPI = 242 //Pushes to stack the father pid
-	MSG = 243 //Sends message to pid
-	AWA = 244 //Blocks threads until message (pushed into the stack)
+	TE = 53 //Throw exception
+	RE = 54 //Rescue exception, sets an exception rescue fragment, and a exported local variable
+	DR = 55 //Discard rescue, removes rescue
 
 	//Interaction
 
-	INV = 55  //Invokes native function
+	INV = 56  //Invokes native function
 	SYS = 251 //Invokes a system call
-	IFD = 56  //Invocation for debugging, run directly methods, NOT SAFE!
+	IFD = 57  //Invocation for debugging, run directly methods, NOT SAFE!
 
 	LDOP = 256 //Last defined operation, just a mark
 )
