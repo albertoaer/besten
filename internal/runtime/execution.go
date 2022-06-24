@@ -197,11 +197,12 @@ func (proc *Process) run() {
 		if e := recover(); e != nil {
 			proc.done <- errors.New(fmt.Sprintf("[fr: %s, pc : %d, icode : %d] Runtime error: %v",
 				proc.symbol.Name, proc.pc-1, proc.symbol.Source[proc.pc-1].Code, e))
+		} else {
+			proc.done <- nil
 		}
 	}()
 	for {
 		if proc.pc >= len(proc.symbol.Source) {
-			proc.done <- nil
 			break
 		}
 		ins := proc.symbol.Source[proc.pc]

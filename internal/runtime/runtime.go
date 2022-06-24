@@ -30,6 +30,14 @@ func MKInstruction(code ICode, operands ...Object) Instruction {
 	return Instruction{code, &opr, uint8(len(operands))}
 }
 
+func (i Instruction) Inspect() []Object {
+	x := make([]Object, i.sz)
+	for idx := uint8(0); idx < i.sz; idx++ {
+		x[idx] = i.operands[idx]
+	}
+	return x
+}
+
 func (i Instruction) Fragment() []Instruction {
 	return []Instruction{i}
 }
