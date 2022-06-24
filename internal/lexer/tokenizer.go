@@ -13,10 +13,11 @@ const (
 	NoneToken     TokenType = 0
 	KeywordToken  TokenType = 1
 	IdToken       TokenType = 2
-	OperatorToken TokenType = 4
-	IntegerToken  TokenType = 8
-	DecimalToken  TokenType = 16
-	StringToken   TokenType = 32
+	SpecialToken  TokenType = 4 //For . , ( ) :
+	OperatorToken TokenType = 8
+	IntegerToken  TokenType = 16
+	DecimalToken  TokenType = 32
+	StringToken   TokenType = 64
 )
 
 type Token struct {
@@ -27,8 +28,10 @@ type Token struct {
 var string_mark rune = '"'
 var decimal_mark rune = '.'
 var negative_mark rune = '-'
+var underscore_mark rune = '_'
+var specials []string = []string{",", ".", "(", ")", ":"}
 var keywords []string = []string{"require", "import", "struct", "return", "fn", "op", "do",
-	"val", "var", "for", "while", "collect", "done", "throw", "catch", "true", "false"}
+	"val", "var", "for", "while", "collect", "done", "throw", "catch", "true", "false", "direct"}
 
 func strArrContains(arr []string, elem string) bool {
 	for _, a := range arr {
@@ -52,7 +55,9 @@ func leter(char rune) bool {
 }
 
 func solveToken(mask TokenType, value string) (Token, error) {
-	if mask == IntegerToken || mask == DecimalToken || mask == OperatorToken || mask == StringToken {
+	if mask == OperatorToken && strArrContains(specials, value) {
+		return Token{value, SpecialToken}, nil
+	} else if mask == IntegerToken || mask == DecimalToken || mask == OperatorToken || mask == StringToken {
 		return Token{value, mask}, nil
 	} else if mask == IdToken {
 		if strArrContains(keywords, value) {
@@ -72,6 +77,9 @@ const (
 )
 
 func splitOp(prev []rune, char rune) bool {
+	if len(prev) == 1 && (strArrContains(specials, string(prev[0])) || strArrContains(specials, string(char))) {
+		return true
+	}
 	if unicode.IsSymbol(char) {
 		return false
 	}
@@ -91,6 +99,13 @@ func updateMask(previous []rune, mask TokenType, char rune) (newmask TokenType, 
 		} else if char == string_mark {
 			newmask = StringToken
 			action = pushNoAdd
+		} else if char == underscore_mark {
+			if mask == IdToken {
+				action = mergeTokens
+			} else {
+				action = pushToken
+				newmask = IdToken
+			}
 		} else {
 			newmask = OperatorToken
 			if mask != OperatorToken || (mask == OperatorToken && splitOp(previous, char)) {

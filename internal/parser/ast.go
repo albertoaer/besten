@@ -275,17 +275,7 @@ func (s *SyntaxTree) generateFirstLevelExpression(tks []Token, children []Block)
 }
 
 func (s *SyntaxTree) generateSecondLevelExpression(tks []Token) (syntaxBranch, error) {
-	comacheck, err := splitByToken(tks, func(tk Token) bool { return tk == COMA }, []struct {
-		open  Token
-		close Token
-	}{{POPEN, PCLOSE}, {BOPEN, BCLOSE}}, false, false)
-	if err != nil {
-		return nil, err
-	}
-	if len(comacheck) > 1 {
-		return nil, errors.New("Unexpected token: ,")
-	}
-	ttks, err := splitByToken(tks, func(tk Token) bool { return tk.Kind == OperatorToken && tk.Data != "." }, []struct {
+	ttks, err := splitByToken(tks, func(tk Token) bool { return tk.Kind == OperatorToken }, []struct {
 		open  Token
 		close Token
 	}{{POPEN, PCLOSE}, {BOPEN, BCLOSE}}, true, true)
@@ -336,9 +326,9 @@ func (s *SyntaxTree) identifyExpressionBranch(tks []Token) (syntaxBranch, error)
 	if route, e := getRoute(tks); e == nil {
 		return &syntaxRoute{nil, route, s}, nil
 	}
-	if len(tks) == 1 {
-		if !isLiteral(tks[0]) {
-			return nil, errors.New(fmt.Sprintf("Unexpected token: %s", tks[0].Data))
+	if isLiteral(tks[0]) {
+		if len(tks) > 1 {
+			return nil, errors.New(fmt.Sprintf("Unexpected token: %s", tks[1].Data))
 		}
 		return &syntaxLiteral{tks[0].Data, tks[0].Kind, s}, nil
 	}
