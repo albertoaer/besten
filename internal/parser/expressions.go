@@ -81,7 +81,7 @@ func (p *Parser) parseArguments(tks []Token) (args []string, types []OBJType, us
 				err = fmt.Errorf("Expecting type for argument: %s", nm.Data)
 				return
 			}
-			tp, e := solveContextedTypeFromTokens(n, p, false)
+			tp, e := solveContextedTypeFromTokens(n, p, true)
 			if e != nil {
 				err = e
 				return
