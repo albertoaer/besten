@@ -45,10 +45,14 @@ const (
 
 	//LOGIC
 
-	NOT = 50 //logic not
-	AND = 51 //logic and
-	OR  = 52 //logic or
-	XOR = 53 //logic xor
+	NOT  = 50 //logic not
+	AND  = 51 //logic and
+	OR   = 52 //logic or
+	XOR  = 53 //logic xor
+	NOTB = 54 //logic not boolean
+	ANDB = 55 //logic and boolean
+	ORB  = 56 //logic or boolean
+	XORB = 57 //logic xor boolean
 
 	//STRINGS
 

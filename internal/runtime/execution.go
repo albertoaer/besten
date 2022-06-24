@@ -153,9 +153,13 @@ func (proc *Process) DirectInvoke(fn EmbeddedFunction) {
 
 func boolNum(b bool) int {
 	if b {
-		return -1
+		return 1
 	}
 	return 0
+}
+
+func iToBool(i int) int {
+	return (i + 3) >> 1
 }
 
 /*
@@ -249,7 +253,7 @@ func (proc *Process) run() {
 				fstack.Push(boolNum(fstack.a(ins).(int) >= fstack.b(ins).(int)))
 			case DGQ:
 				fstack.Push(boolNum(fstack.a(ins).(float64) >= fstack.b(ins).(float64)))
-			//LOGIC
+				//LOGIC
 			case NOT:
 				fstack.Push(^fstack.a(ins).(int))
 			case AND:
@@ -258,6 +262,14 @@ func (proc *Process) run() {
 				fstack.Push(fstack.a(ins).(int) | fstack.b(ins).(int))
 			case XOR:
 				fstack.Push(fstack.a(ins).(int) ^ fstack.b(ins).(int))
+			case NOTB:
+				fstack.Push(iToBool(^fstack.a(ins).(int)))
+			case ANDB:
+				fstack.Push(iToBool(fstack.a(ins).(int) & fstack.b(ins).(int)))
+			case ORB:
+				fstack.Push(iToBool(fstack.a(ins).(int) | fstack.b(ins).(int)))
+			case XORB:
+				fstack.Push(iToBool(fstack.a(ins).(int) ^ fstack.b(ins).(int)))
 			//STRINGS
 			case CCS:
 				fstack.Push(fstack.a(ins).(string) + fstack.b(ins).(string))

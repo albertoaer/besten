@@ -44,7 +44,7 @@ func (s *syntaxLiteral) runIntoStack(p *Parser, stack *[]Instruction) (OBJType, 
 	case KeywordToken:
 		toret = Bool
 		if s.value == TRUE.Data {
-			ins = MKInstruction(PSH, -1)
+			ins = MKInstruction(PSH, 1)
 			break
 		} else if s.value == FALSE.Data {
 			ins = MKInstruction(PSH, 0)
