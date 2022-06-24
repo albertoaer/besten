@@ -46,13 +46,10 @@ func (p *Parser) parseImport(block Block) error {
 				}
 			}
 			tks = discardOne(tks)
-		} else {
-			return unexpect(tks)
 		}
-	} else {
-		return e
+		return unexpect(tks)
 	}
-	return unexpect(tks)
+	return e
 }
 
 func (p *Parser) parseFunction(block Block, operator bool) error {
