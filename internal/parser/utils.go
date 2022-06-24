@@ -46,15 +46,18 @@ func expect(tks []Token, t Token) ([]Token, error) {
 }
 
 func expectT(tks []Token, t TokenType) (Token, []Token, error) {
-	if len(tks) == 0 || tks[0].Kind != t {
+	if len(tks) == 0 {
 		return Token{}, nil, errors.New(fmt.Sprintf("Expecting token type %s", t.Representation()))
+	}
+	if tks[0].Kind != t {
+		return Token{}, nil, errors.New(fmt.Sprintf("Expecting token type %s instead of %s", t.Representation(), tks[0].Kind.Representation()))
 	}
 	return tks[0], tks[1:], nil
 }
 
 func expectV(tks []Token, v string) (Token, []Token, error) {
 	if len(tks) == 0 || tks[0].Data != v {
-		return Token{}, nil, errors.New(fmt.Sprintf("Expecting token type %s", v))
+		return Token{}, nil, errors.New(fmt.Sprintf("Expecting token: %s", v))
 	}
 	return tks[0], tks[1:], nil
 }

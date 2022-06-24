@@ -26,10 +26,10 @@ var (
 	QUOTE          = Token{Data: "'", Kind: OperatorToken}
 	POPEN          = Token{Data: "(", Kind: SpecialToken}
 	PCLOSE         = Token{Data: ")", Kind: SpecialToken}
-	BOPEN          = Token{Data: "[", Kind: OperatorToken}
-	BCLOSE         = Token{Data: "]", Kind: OperatorToken}
-	CBOPEN         = Token{Data: "{", Kind: OperatorToken}
-	CBCLOSE        = Token{Data: "}", Kind: OperatorToken}
+	BOPEN          = Token{Data: "[", Kind: SpecialToken}
+	BCLOSE         = Token{Data: "]", Kind: SpecialToken}
+	CBOPEN         = Token{Data: "{", Kind: SpecialToken}
+	CBCLOSE        = Token{Data: "}", Kind: SpecialToken}
 	TRUE           = Token{Data: "true", Kind: KeywordToken}
 	FALSE          = Token{Data: "false", Kind: KeywordToken}
 )

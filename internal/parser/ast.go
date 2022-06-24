@@ -234,9 +234,9 @@ type syntaxOpCall struct {
 }
 
 func (s *syntaxOpCall) runIntoStack(p *Parser, stack *[]Instruction) (OBJType, error) {
-	if v, e := s.operands[0].(*syntaxLiteral); len(s.operands) == 1 && e &&
+	if v, e := s.operands[0].(*syntaxLiteral); (s.operator == "+" || s.operator == "-") && len(s.operands) == 1 && e &&
 		(v.kind == IntegerToken || v.kind == DecimalToken) {
-		v.value = "-" + v.value
+		v.value = s.operator + v.value
 		return v.runIntoStack(p, stack)
 	}
 	ops := make([]OBJType, len(s.operands))

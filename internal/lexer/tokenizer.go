@@ -51,9 +51,10 @@ type Token struct {
 var string_mark rune = '"'
 var decimal_mark rune = '.'
 var underscore_mark rune = '_'
-var specials []string = []string{",", ".", "(", ")", ":"}
+var specials []string = []string{",", ".", "(", ")", ":", "[", "]", "{", "}"}
 var keywords []string = []string{"require", "import", "struct", "return", "fn", "op", "do",
-	"val", "var", "if", "else", "for", "in", "while", "collect", "done", "throw", "catch", "true", "false", "direct", "ref"}
+	"val", "var", "if", "else", "for", "in", "while", "collect", "done", "throw", "catch",
+	"true", "false", "direct", "ref"}
 
 func strArrContains(arr []string, elem string) bool {
 	for _, a := range arr {
@@ -99,16 +100,10 @@ const (
 )
 
 func splitOp(prev []rune, char rune) bool {
-	if len(prev) == 1 && (strArrContains(specials, string(prev[0])) || strArrContains(specials, string(char))) {
-		return true
-	}
-	if unicode.IsSymbol(char) {
-		return false
-	}
 	if len(prev) == 1 && prev[0] == '[' && char == ']' { //special case for operator []
 		return false
 	}
-	return true
+	return len(prev) > 0 && (strArrContains(specials, string(prev[len(prev)-1])) || strArrContains(specials, string(char)))
 }
 
 //action: It the way tokens will be treat after mask fushions
