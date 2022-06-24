@@ -119,6 +119,10 @@ func (p *Parser) parseFunction(block Block, operator bool) error {
 			return e
 		}
 	}
+	if len(args) == 0 {
+		//Generate all symbols with no arguments
+		usetypes = true
+	}
 	if operator && (len(args) > 2 || len(args) < 1) {
 		return errors.New("Operator must be unary or binary")
 	}

@@ -69,7 +69,7 @@ func (m *Modules) MainFile(name string) (symbols map[string]Symbol, cname string
 		err = e
 		return
 	}
-	cname, err = module_parser.GenerateFunction("main")
+	cname, err = module_parser.GetSymbolNameFor("main", false, []parser.OBJType{parser.VecOf(parser.Str)})
 	if err != nil {
 		return
 	}

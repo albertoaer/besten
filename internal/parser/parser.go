@@ -1,6 +1,9 @@
 package parser
 
 import (
+	"errors"
+	"fmt"
+
 	. "github.com/Besten/internal/lexer"
 	. "github.com/Besten/internal/runtime"
 )
@@ -133,10 +136,14 @@ func (p *Parser) ParseCode(blocks []Block, modulename string) error {
 	return e
 }
 
-func (p *Parser) GenerateFunction(name string) (string, error) {
-	sym, e := p.generateFunctionFromTemplate(name, false, []OBJType{VecOf(Str)})
-	if e != nil {
-		return "", e
+func (p *Parser) GetSymbolNameFor(name string, operator bool, callers []OBJType) (string, error) {
+	sym, e := p.findFunction(name, operator, callers)
+	if !e {
+		symboltype := "function"
+		if operator {
+			symboltype = "operator"
+		}
+		return "", errors.New(fmt.Sprintf("There is no %s symbol %s/%d valid for %s", symboltype, name, len(callers), FnCArrRepr(callers)))
 	}
 	return sym.CName, nil
 }
