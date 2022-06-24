@@ -9,6 +9,11 @@ import (
 	. "github.com/Besten/internal/runtime"
 )
 
+var genericPairs = []struct {
+	open  Token
+	close Token
+}{{CBOPEN, CBCLOSE}, {POPEN, PCLOSE}, {BOPEN, BCLOSE}}
+
 type syntaxLiteral struct {
 	value string
 	kind  TokenType
@@ -73,6 +78,52 @@ func getRoute(tk []Token) ([]string, error) {
 		res = append(res, tk[i].Data)
 	}
 	return res, nil
+}
+
+type syntaxTupleDefinition struct {
+	elements []syntaxBranch
+	owner    *SyntaxTree
+}
+
+func (s *syntaxTupleDefinition) runIntoStack(p *Parser, stack *[]Instruction) (OBJType, error) {
+	tps := make([]OBJType, 0)
+	for i := range s.elements {
+		t, e := s.elements[len(s.elements)-i-1].runIntoStack(p, stack)
+		if e != nil {
+			return nil, e
+		}
+		tps = append(tps, t)
+	}
+	*stack = append(*stack, MKInstruction(CSE, len(s.elements)), MKInstruction(WTP))
+	return TupleOf(tps), nil
+}
+
+type syntaxConstantAccess struct {
+	target syntaxBranch
+	idx    int
+	owner  *SyntaxTree
+}
+
+func (s *syntaxConstantAccess) runIntoStack(p *Parser, stack *[]Instruction) (OBJType, error) {
+	tempstack := make([]Instruction, 0) //Important to insert the push index
+	r, e := s.target.runIntoStack(p, &tempstack)
+	if e != nil {
+		return nil, e
+	}
+	if r.Primitive() != TUPLE { //When is not tuple related search for index operator
+		ins, ret, err := p.solveFunctionCall(INDEXOP.Data, true, []OBJType{r, Int})
+		*stack = append(*stack, MKInstruction(PSH, s.idx))
+		*stack = append(*stack, tempstack...)
+		*stack = append(*stack, ins...)
+		return ret, err
+	}
+	*stack = append(*stack, tempstack...)
+	elems := r.FixedItems()
+	if s.idx < 0 || len(elems) <= s.idx {
+		return nil, errors.New(fmt.Sprintf("Invalid index %d for %s", s.idx, Repr(r)))
+	}
+	*stack = append(*stack, MKInstruction(PTW), MKInstruction(ACC, s.idx))
+	return elems[s.idx], nil
 }
 
 type syntaxRoute struct {
@@ -309,10 +360,7 @@ func (s *SyntaxTree) splitAssignmentExpression(tks []Token, children []Block) (s
 	if len(tks) == 0 {
 		return nil, errors.New("No expression to parse")
 	}
-	ttks, err := splitByToken(tks, func(tk Token) bool { return tk == ASSIGN }, []struct {
-		open  Token
-		close Token
-	}{{POPEN, PCLOSE}, {BOPEN, BCLOSE}}, false, false, false)
+	ttks, err := splitByToken(tks, func(tk Token) bool { return tk == ASSIGN }, genericPairs, false, false, false)
 	if err != nil {
 		return nil, err
 	}
@@ -370,10 +418,7 @@ func (s *SyntaxTree) generateFirstLevelExpression(tks []Token, children []Block)
 }
 
 func (s *SyntaxTree) generateSecondLevelExpression(tks []Token) (syntaxBranch, error) {
-	ttks, err := splitByToken(tks, func(tk Token) bool { return tk.Kind == OperatorToken }, []struct {
-		open  Token
-		close Token
-	}{{POPEN, PCLOSE}, {BOPEN, BCLOSE}}, true, true, false)
+	ttks, err := splitByToken(tks, func(tk Token) bool { return tk.Kind == OperatorToken }, genericPairs, true, true, false)
 	if err != nil {
 		return nil, err
 	}
@@ -435,10 +480,29 @@ func (s *SyntaxTree) identifyExpressionBranch(tks []Token) (syntaxBranch, error)
 		}
 		return &syntaxLiteral{tks[0].Data, tks[0].Kind, s}, nil
 	}
-	left, inner, right, err := blockSubtract(tks, BOPEN, BCLOSE, []struct {
-		open  Token
-		close Token
-	}{{POPEN, PCLOSE}, {BOPEN, BCLOSE}})
+	if tks[0] == CBOPEN {
+		_, inner, right, err := blockSubtract(tks, CBOPEN, CBCLOSE, genericPairs)
+		if err != nil {
+			return nil, err
+		}
+		args, err := splitByToken(inner, func(t Token) bool { return t == COMA }, genericPairs, false, false, false)
+		if err != nil {
+			return nil, err
+		}
+		tupledef := syntaxTupleDefinition{elements: make([]syntaxBranch, 0), owner: s}
+		for _, arg := range args {
+			exp, err := s.generateSecondLevelExpression(arg)
+			if err != nil {
+				return nil, err
+			}
+			tupledef.elements = append(tupledef.elements, exp)
+		}
+		if len(right) > 0 {
+			return s.identifySubrouting(&tupledef, right)
+		}
+		return &tupledef, nil
+	}
+	left, inner, right, err := blockSubtract(tks, BOPEN, BCLOSE, genericPairs)
 	if err != nil {
 		return nil, err
 	}
@@ -457,6 +521,13 @@ func (s *SyntaxTree) identifyExpressionBranch(tks []Token) (syntaxBranch, error)
 			if e != nil {
 				return nil, e
 			}
+			if len(inner) == 1 && inner[0].Kind == IntegerToken {
+				i, r := strconv.Atoi(inner[0].Data)
+				if r != nil {
+					return nil, r
+				}
+				return &syntaxConstantAccess{target: &syntaxRoute{nil, route, s}, idx: i, owner: s}, nil
+			}
 			indexer, err := s.generateSecondLevelExpression(inner)
 			e = err
 			preceded = &syntaxOpCall{operator: INDEXOP.Data, operands: []syntaxBranch{&syntaxRoute{nil, route, s}, indexer}}
@@ -468,34 +539,38 @@ func (s *SyntaxTree) identifyExpressionBranch(tks []Token) (syntaxBranch, error)
 	}
 }
 
-func (s *SyntaxTree) identifySubrouting(preceded syntaxBranch, next []Token) (syntaxBranch, error) {
-	left, inner, right, err := blockSubtract(next, BOPEN, BCLOSE, []struct {
-		open  Token
-		close Token
-	}{{POPEN, PCLOSE}, {BOPEN, BCLOSE}})
+func (s *SyntaxTree) identifySubrouting(preceded syntaxBranch, nexttks []Token) (syntaxBranch, error) {
+	left, inner, right, err := blockSubtract(nexttks, BOPEN, BCLOSE, genericPairs)
 	if err != nil {
 		return nil, err
 	}
 	var idx syntaxBranch = nil
 	var e error
-	if len(left) == len(next) {
+	if len(left) == len(nexttks) {
 		route, e := getRoute(left)
 		if e != nil {
 			return nil, e
 		}
 		return &syntaxRoute{preceded, route, s}, nil
-	} else if len(left) == 0 {
-		indexer, err := s.generateSecondLevelExpression(inner)
-		e = err
-		idx = &syntaxOpCall{operator: INDEXOP.Data, operands: []syntaxBranch{preceded, indexer}}
 	} else {
-		route, e := getRoute(left)
-		if e != nil {
-			return nil, e
+		branch := preceded
+		if len(left) != 0 {
+			route, e := getRoute(left)
+			if e != nil {
+				return nil, e
+			}
+			branch = &syntaxRoute{preceded, route, s}
+		}
+		if len(inner) == 1 && inner[0].Kind == IntegerToken {
+			i, r := strconv.Atoi(inner[0].Data)
+			if r != nil {
+				return nil, r
+			}
+			return &syntaxConstantAccess{target: branch, idx: i, owner: s}, nil
 		}
 		indexer, err := s.generateSecondLevelExpression(inner)
 		e = err
-		idx = &syntaxOpCall{operator: INDEXOP.Data, operands: []syntaxBranch{&syntaxRoute{preceded, route, s}, indexer}}
+		idx = &syntaxOpCall{operator: INDEXOP.Data, operands: []syntaxBranch{branch, indexer}, owner: s}
 	}
 	if len(right) == 0 || e != nil {
 		return idx, e
@@ -504,10 +579,7 @@ func (s *SyntaxTree) identifySubrouting(preceded syntaxBranch, next []Token) (sy
 }
 
 func (s *SyntaxTree) identifyParenthesisBranch(tks []Token) (syntaxBranch, error) {
-	left, inner, right, err := blockSubtract(tks, POPEN, PCLOSE, []struct {
-		open  Token
-		close Token
-	}{{POPEN, PCLOSE}, {BOPEN, BCLOSE}})
+	left, inner, right, err := blockSubtract(tks, POPEN, PCLOSE, genericPairs)
 	if err != nil {
 		return nil, err
 	}
@@ -524,10 +596,7 @@ func (s *SyntaxTree) identifyParenthesisBranch(tks []Token) (syntaxBranch, error
 }
 
 func (s *SyntaxTree) generateFunctionCall(head []Token, callbody []Token) (syntaxBranch, error) {
-	args, err := splitByToken(callbody, func(t Token) bool { return t == COMA }, []struct {
-		open  Token
-		close Token
-	}{{POPEN, PCLOSE}, {BOPEN, BCLOSE}}, false, false, false)
+	args, err := splitByToken(callbody, func(t Token) bool { return t == COMA }, genericPairs, false, false, false)
 	if err != nil {
 		return nil, err
 	}
@@ -547,10 +616,7 @@ func (s *SyntaxTree) generateFunctionCall(head []Token, callbody []Token) (synta
 }
 
 func (s *SyntaxTree) generateOperands(tks []Token) ([]syntaxBranch, error) {
-	ttks, err := splitByToken(tks, func(t Token) bool { return t == COMA }, []struct {
-		open  Token
-		close Token
-	}{{POPEN, PCLOSE}, {BOPEN, BCLOSE}}, false, false, false)
+	ttks, err := splitByToken(tks, func(t Token) bool { return t == COMA }, genericPairs, false, false, false)
 	if err != nil {
 		return nil, err
 	}
@@ -573,10 +639,7 @@ func generateModifiers(ttks [][]Token) ([]syntaxBranch, error) {
 }
 
 func splitFirstLevelFunctionCall(tks []Token, haslambda bool, children []Block) (name []Token, args []Token, modifiers [][]Token, template FunctionTemplate, err error) {
-	ttks, err := splitByToken(tks, func(t Token) bool { return t == DOUBLES }, []struct {
-		open  Token
-		close Token
-	}{{POPEN, PCLOSE}, {BOPEN, BCLOSE}}, true, false, true)
+	ttks, err := splitByToken(tks, func(t Token) bool { return t == DOUBLES }, genericPairs, true, false, true)
 	switch len(ttks) {
 	case 0:
 		err = errors.New("No function to be parsed") //Weird
@@ -605,10 +668,7 @@ func splitFirstLevelFunctionCall(tks []Token, haslambda bool, children []Block) 
 }
 
 func substractModifiers(tks []Token) ([]Token, [][]Token, error) {
-	ttks, err := splitByToken(tks, func(t Token) bool { return t.Kind == KeywordToken && t != TRUE && t != FALSE }, []struct {
-		open  Token
-		close Token
-	}{{POPEN, PCLOSE}, {BOPEN, BCLOSE}}, true, true, false)
+	ttks, err := splitByToken(tks, func(t Token) bool { return t.Kind == KeywordToken && t != TRUE && t != FALSE }, genericPairs, true, true, false)
 	if err != nil {
 		return nil, nil, err
 	}
