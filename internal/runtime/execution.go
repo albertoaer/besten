@@ -171,6 +171,14 @@ func boolNum(b bool) int {
 	return 0
 }
 
+func compareInt(flags int, a int, b int) int {
+	return boolNum((flags&1 != 0 && a == b) || (flags&2 != 0 && a < b)) ^ (flags >> 2)
+}
+
+func compareFloat(flags int, a float64, b float64) int {
+	return boolNum((flags&1 != 0 && a == b) || (flags&2 != 0 && a < b)) ^ (flags >> 2)
+}
+
 /*
 Run zone
 */
@@ -184,235 +192,207 @@ func (proc *Process) launch() {
 	}
 }
 
-func compareInt(flags int, a int, b int) int {
-	def := 0
-	if flags&1 != 0 && a == b {
-		def |= 1
+func (proc *Process) rescueFor(e interface{}) {
+	rescue := proc.rescues[len(proc.rescues)-1]
+	proc.rescues = proc.rescues[0 : len(proc.rescues)-1]
+	proc.functionstack.index = rescue.stack
+	proc.callstack.idx = rescue.callstack
+	proc.env, proc.locals = proc.callstack.GetAvailableItems()
+	if rescue.exported >= 0 {
+		v := rescue.exported & 128
+		if v == 0 {
+			proc.functionstack.Push(proc.env.GetEnvironment(rescue.exported))
+		} else {
+			proc.functionstack.Push(proc.locals.GetLocal(rescue.exported & 127))
+		}
 	}
-	if flags&2 != 0 && a < b {
-		def |= 1
-	}
-	return def ^ (flags >> 2)
+	proc.functionstack.Push(fmt.Sprintf("%v", e))
+	proc.JumpToFragment(rescue.fragment)
 }
 
-func compareFloat(flags int, a float64, b float64) int {
-	def := 0
-	if flags&1 != 0 && a == b {
-		def |= 1
+func (proc *Process) onEnd() {
+	if e := recover(); e != nil {
+		if len(proc.rescues) == 0 {
+			proc.done <- fmt.Errorf("[fr : %s, pc : %d, icode : %d] Runtime error: %v",
+				proc.symbol.Name, proc.pc-1, proc.symbol.Source[proc.pc-1].Code, e)
+			proc.symbol = nil
+		} else {
+			proc.rescueFor(e)
+		}
+	} else {
+		proc.done <- nil
+		proc.symbol = nil
 	}
-	if flags&2 != 0 && a < b {
-		def |= 1
-	}
-	return def ^ (flags >> 2)
 }
 
 func (proc *Process) run() {
-	defer func() {
-		if e := recover(); e != nil {
-			if len(proc.rescues) == 0 {
-				proc.done <- fmt.Errorf("[fr : %s, pc : %d, icode : %d] Runtime error: %v",
-					proc.symbol.Name, proc.pc-1, proc.symbol.Source[proc.pc-1].Code, e)
-				proc.symbol = nil
-			} else {
-				rescue := proc.rescues[len(proc.rescues)-1]
-				proc.rescues = proc.rescues[0 : len(proc.rescues)-1]
-				proc.functionstack.index = rescue.stack
-				proc.callstack.idx = rescue.callstack
-				proc.env, proc.locals = proc.callstack.GetAvailableItems()
-				if rescue.exported >= 0 {
-					v := rescue.exported & 128
-					if v == 0 {
-						proc.functionstack.Push(proc.env.GetEnvironment(rescue.exported))
-					} else {
-						proc.functionstack.Push(proc.locals.GetLocal(rescue.exported & 127))
-					}
-				}
-				proc.functionstack.Push(fmt.Sprintf("%v", e))
-				proc.JumpToFragment(rescue.fragment)
-			}
-		} else {
-			proc.done <- nil
-			proc.symbol = nil
-		}
-	}()
+	defer proc.onEnd()
 	fstack := proc.functionstack
 	for proc.pc < len(proc.symbol.Source) {
 		ins := proc.symbol.Source[proc.pc]
 		proc.pc++
 		code := ins.Code
-		switch {
-		case code < 64:
-			switch code {
-			case NOP:
-			//ARITHMETIC
-			case ADD:
-				fstack.Push(fstack.a(ins).(int) + fstack.b(ins).(int))
-			case SUB:
-				fstack.Push(fstack.a(ins).(int) - fstack.b(ins).(int))
-			case MUL:
-				fstack.Push(fstack.a(ins).(int) * fstack.b(ins).(int))
-			case DIV:
-				fstack.Push(fstack.a(ins).(int) / fstack.b(ins).(int))
-			case MOD:
-				fstack.Push(fstack.a(ins).(int) % fstack.b(ins).(int))
-			case ADDF:
-				fstack.Push(fstack.a(ins).(float64) + fstack.b(ins).(float64))
-			case SUBF:
-				fstack.Push(fstack.a(ins).(float64) - fstack.b(ins).(float64))
-			case MULF:
-				fstack.Push(fstack.a(ins).(float64) * fstack.b(ins).(float64))
-			case DIVF:
-				fstack.Push(fstack.a(ins).(float64) / fstack.b(ins).(float64))
-			//CONVERSION
-			case ITD:
-				fstack.Push(float64(fstack.a(ins).(int)))
-			case DTI:
-				fstack.Push(int(fstack.a(ins).(float64)))
-			//COMPARISON
-			case CMPI:
-				fstack.Push(compareInt(fstack.a(ins).(int), fstack.b(ins).(int), fstack.c(ins).(int)))
-			case CMPF:
-				fstack.Push(compareFloat(fstack.a(ins).(int), fstack.b(ins).(float64), fstack.c(ins).(float64)))
-			//SHIFTS
-			case SHL:
-				fstack.Push(fstack.a(ins).(int) << fstack.b(ins).(int))
-			case SHR:
-				fstack.Push(fstack.a(ins).(int) >> fstack.b(ins).(int))
-			//LOGIC
-			case NOT:
-				fstack.Push(^fstack.a(ins).(int))
-			case AND:
-				fstack.Push(fstack.a(ins).(int) & fstack.b(ins).(int))
-			case OR:
-				fstack.Push(fstack.a(ins).(int) | fstack.b(ins).(int))
-			case XOR:
-				fstack.Push(fstack.a(ins).(int) ^ fstack.b(ins).(int))
-			case NOTB:
-				fstack.Push(1 ^ fstack.a(ins).(int))
+		switch code {
+		case NOP:
+		//ARITHMETIC
+		case ADD:
+			fstack.Push(fstack.a(ins).(int) + fstack.b(ins).(int))
+		case SUB:
+			fstack.Push(fstack.a(ins).(int) - fstack.b(ins).(int))
+		case MUL:
+			fstack.Push(fstack.a(ins).(int) * fstack.b(ins).(int))
+		case DIV:
+			fstack.Push(fstack.a(ins).(int) / fstack.b(ins).(int))
+		case MOD:
+			fstack.Push(fstack.a(ins).(int) % fstack.b(ins).(int))
+		case ADDF:
+			fstack.Push(fstack.a(ins).(float64) + fstack.b(ins).(float64))
+		case SUBF:
+			fstack.Push(fstack.a(ins).(float64) - fstack.b(ins).(float64))
+		case MULF:
+			fstack.Push(fstack.a(ins).(float64) * fstack.b(ins).(float64))
+		case DIVF:
+			fstack.Push(fstack.a(ins).(float64) / fstack.b(ins).(float64))
+		//CONVERSION
+		case ITD:
+			fstack.Push(float64(fstack.a(ins).(int)))
+		case DTI:
+			fstack.Push(int(fstack.a(ins).(float64)))
+		//COMPARISON
+		case CMPI:
+			fstack.Push(compareInt(fstack.a(ins).(int), fstack.b(ins).(int), fstack.c(ins).(int)))
+		case CMPF:
+			fstack.Push(compareFloat(fstack.a(ins).(int), fstack.b(ins).(float64), fstack.c(ins).(float64)))
+		//SHIFTS
+		case SHL:
+			fstack.Push(fstack.a(ins).(int) << fstack.b(ins).(int))
+		case SHR:
+			fstack.Push(fstack.a(ins).(int) >> fstack.b(ins).(int))
+		//LOGIC
+		case NOT:
+			fstack.Push(^fstack.a(ins).(int))
+		case AND:
+			fstack.Push(fstack.a(ins).(int) & fstack.b(ins).(int))
+		case OR:
+			fstack.Push(fstack.a(ins).(int) | fstack.b(ins).(int))
+		case XOR:
+			fstack.Push(fstack.a(ins).(int) ^ fstack.b(ins).(int))
+		case NOTB:
+			fstack.Push(1 ^ fstack.a(ins).(int))
+		//MEMORY
+		case LEI:
+			fstack.Push(proc.env.GetEnvironment(fstack.a(ins).(int)))
+		case SEI:
+			proc.env.SetEnvironment(fstack.a(ins).(int), fstack.b(ins))
+		case LLI:
+			fstack.Push(proc.locals.GetLocal(fstack.a(ins).(int)))
+		case SLI:
+			proc.locals.SetLocal(fstack.a(ins).(int), fstack.b(ins))
+		//STACK
+		case PSH:
+			fstack.Push(fstack.a(ins))
+		case POP:
+			fstack.Pop()
+		case CLR:
+			fstack.Clear()
+		case DUP:
+			x := fstack.a(ins)
+			fstack.Push(x)
+			fstack.Push(x)
+		case SWT:
+			x, y := fstack.a(ins), fstack.b(ins)
+			fstack.Push(x)
+			fstack.Push(y)
+		//CONTROL
+		case CLL, CLX:
+			proc.callstack.Insert(proc.pc, proc.symbol)
+			proc.env, proc.locals = proc.callstack.GetAvailableItems()
+			name := fstack.a(ins).(string)
+			if code == CLX {
+				fstack.PushN(*fstack.b(ins).(VecT))
 			}
-		case code < 128:
-			switch code {
-			//MEMORY
-			case LEI:
-				fstack.Push(proc.env.GetEnvironment(fstack.a(ins).(int)))
-			case SEI:
-				proc.env.SetEnvironment(fstack.a(ins).(int), fstack.b(ins))
-			case LLI:
-				fstack.Push(proc.locals.GetLocal(fstack.a(ins).(int)))
-			case SLI:
-				proc.locals.SetLocal(fstack.a(ins).(int), fstack.b(ins))
-			//STACK
-			case PSH:
-				fstack.Push(fstack.a(ins))
-			case POP:
-				fstack.Pop()
-			case CLR:
-				fstack.Clear()
-			case DUP:
-				x := fstack.a(ins)
-				fstack.Push(x)
-				fstack.Push(x)
-			case SWT:
-				x, y := fstack.a(ins), fstack.b(ins)
-				fstack.Push(x)
-				fstack.Push(y)
-			//CONTROL
-			case CLL, CLX:
-				proc.callstack.Insert(proc.pc, proc.symbol)
-				proc.env, proc.locals = proc.callstack.GetAvailableItems()
-				name := fstack.a(ins).(string)
-				if code == CLX {
-					fstack.PushN(*fstack.b(ins).(VecT))
-				}
-				proc.JumpToFragment(name)
-			case JMP, JMX:
-				name := fstack.a(ins).(string)
-				if code == CLX {
-					fstack.PushN(*fstack.b(ins).(VecT))
-				}
-				proc.JumpToFragment(name)
-			case RET:
-				proc.ReturnLastPoint()
-			case MVR:
+			proc.JumpToFragment(name)
+		case JMP, JMX:
+			name := fstack.a(ins).(string)
+			if code == CLX {
+				fstack.PushN(*fstack.b(ins).(VecT))
+			}
+			proc.JumpToFragment(name)
+		case RET:
+			proc.ReturnLastPoint()
+		case MVR:
+			proc.pc += fstack.a(ins).(int)
+		case MVT:
+			if fstack.b(ins).(int) != 0 {
 				proc.pc += fstack.a(ins).(int)
-			case MVT:
-				if fstack.b(ins).(int) != 0 {
-					proc.pc += fstack.a(ins).(int)
-				}
-			case MVF:
-				if fstack.b(ins).(int) == 0 {
-					proc.pc += fstack.a(ins).(int)
-				}
 			}
-		case code < 192:
-			switch code {
-			//MAPS AND VECTORS
-			case KVC:
-				fstack.Push(make(MapT))
-			case PRP:
-				vec := make([]Object, 2)
-				var vecref VecT = &vec
-				k, v := fstack.a(ins).(MapT)[fstack.b(ins).(string)]
-				vec[0] = k
-				vec[1] = boolNum(v)
-				fstack.Push(vecref)
-			case ATT:
-				val, key, m := fstack.a(ins), fstack.b(ins).(string), fstack.c(ins).(MapT)
-				(m)[key] = val
-			case VEC:
-				vec := make([]Object, 0)
-				var vecref VecT = &vec
-				fstack.Push(vecref)
-			case ACC:
-				fstack.Push((*(fstack.a(ins).(VecT)))[fstack.b(ins).(int)])
-			case APP:
-				vec := fstack.a(ins).(VecT)
-				*vec = append(*vec, fstack.b(ins))
-			case SVI:
-				val, idx, vec := fstack.a(ins), fstack.b(ins).(int), *(fstack.c(ins).(VecT))
-				vec[idx] = val
-			case DMI:
-				m := fstack.a(ins).(MapT)
-				delete(m, fstack.a(ins).(string))
-			case PFV:
-				v := fstack.a(ins).(VecT)
-				fstack.Push((*v)[0])
-				*v = (*v)[1:]
-			case CSE:
-				sz := fstack.a(ins).(int)
-				if sz < 0 {
-					panic("Trying to collapse negative number of elements")
-				}
-				vec := fstack.PopN(sz)
-				var vecref VecT = &vec
-				fstack.Push(vecref)
-			case EIS:
-				vec := fstack.a(ins).(VecT)
-				fstack.PushN(*vec)
-			//SIZE
-			case SOS:
-				fstack.Push(len(fstack.a(ins).(string)))
-			case SOV:
-				fstack.Push(len(*fstack.a(ins).(VecT)))
-			case SOM:
-				fstack.Push(len(fstack.a(ins).(MapT)))
+		case MVF:
+			if fstack.b(ins).(int) == 0 {
+				proc.pc += fstack.a(ins).(int)
 			}
-		default:
-			switch code {
-			//STATE
-			case TE:
-				panic(fstack.a(ins))
-			case RE:
-				proc.rescues = append(proc.rescues, RescuePoint{fstack.a(ins).(string),
-					fstack.index, proc.callstack.idx, fstack.b(ins).(int)})
-			case DR:
-				proc.rescues = proc.rescues[0 : len(proc.rescues)-1]
-			//Interaction
-			case INV:
-				proc.Invoke(fstack.a(ins).(string))
-			case IFD:
-				proc.DirectInvoke(fstack.a(ins).(EmbeddedFunction))
+		//MAPS AND VECTORS
+		case KVC:
+			fstack.Push(make(MapT))
+		case PRP:
+			vec := make([]Object, 2)
+			var vecref VecT = &vec
+			k, v := fstack.a(ins).(MapT)[fstack.b(ins).(string)]
+			vec[0] = k
+			vec[1] = boolNum(v)
+			fstack.Push(vecref)
+		case ATT:
+			val, key, m := fstack.a(ins), fstack.b(ins).(string), fstack.c(ins).(MapT)
+			(m)[key] = val
+		case VEC:
+			vec := make([]Object, 0)
+			var vecref VecT = &vec
+			fstack.Push(vecref)
+		case ACC:
+			fstack.Push((*(fstack.a(ins).(VecT)))[fstack.b(ins).(int)])
+		case APP:
+			vec := fstack.a(ins).(VecT)
+			*vec = append(*vec, fstack.b(ins))
+		case SVI:
+			val, idx, vec := fstack.a(ins), fstack.b(ins).(int), *(fstack.c(ins).(VecT))
+			vec[idx] = val
+		case DMI:
+			m := fstack.a(ins).(MapT)
+			delete(m, fstack.a(ins).(string))
+		case PFV:
+			v := fstack.a(ins).(VecT)
+			fstack.Push((*v)[0])
+			*v = (*v)[1:]
+		case CSE:
+			sz := fstack.a(ins).(int)
+			if sz < 0 {
+				panic("Trying to collapse negative number of elements")
 			}
+			vec := fstack.PopN(sz)
+			var vecref VecT = &vec
+			fstack.Push(vecref)
+		case EIS:
+			vec := fstack.a(ins).(VecT)
+			fstack.PushN(*vec)
+		//SIZE
+		case SOS:
+			fstack.Push(len(fstack.a(ins).(string)))
+		case SOV:
+			fstack.Push(len(*fstack.a(ins).(VecT)))
+		case SOM:
+			fstack.Push(len(fstack.a(ins).(MapT)))
+		//STATE
+		case TE:
+			panic(fstack.a(ins))
+		case RE:
+			proc.rescues = append(proc.rescues, RescuePoint{fstack.a(ins).(string),
+				fstack.index, proc.callstack.idx, fstack.b(ins).(int)})
+		case DR:
+			proc.rescues = proc.rescues[0 : len(proc.rescues)-1]
+		//Interaction
+		case INV:
+			proc.Invoke(fstack.a(ins).(string))
+		case IFD:
+			proc.DirectInvoke(fstack.a(ins).(EmbeddedFunction))
 		}
 	}
 }
