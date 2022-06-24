@@ -8,12 +8,36 @@ const (
 	NULL    PrimitiveType = 2
 	INTEGER PrimitiveType = 3
 	DECIMAL PrimitiveType = 4
-	STRING  PrimitiveType = 5
-	VECTOR  PrimitiveType = 6
-	MAP     PrimitiveType = 7
-	STRUCT  PrimitiveType = 8
-	TUPLE   PrimitiveType = 9
+	BOOL    PrimitiveType = 5
+	STRING  PrimitiveType = 6
+	VECTOR  PrimitiveType = 7
+	MAP     PrimitiveType = 8
+	STRUCT  PrimitiveType = 9
+	TUPLE   PrimitiveType = 10
 )
+
+func ArrRepr(arr []OBJType) string {
+	rep := "("
+	for i, a := range arr {
+		rep += Repr(a)
+		if i < len(arr)-1 {
+			rep += ","
+		}
+	}
+	rep += ")"
+	return rep
+}
+
+func Repr(a OBJType) string {
+	base := a.TypeName()
+	switch a.Primitive() {
+	case VECTOR, MAP:
+		base += "|" + Repr(a.Items())
+	case STRUCT: //TODO: Named types repr
+	case TUPLE: //TODO: Fixed length types repr
+	}
+	return base
+}
 
 type OBJType interface {
 	TypeName() string               //For identifying type
@@ -74,6 +98,7 @@ var (
 	Void OBJType = &Literal{VOID, "Void"}
 	Int  OBJType = &Literal{INTEGER, "Int"}
 	Dec  OBJType = &Literal{DECIMAL, "Decimal"}
+	Bool OBJType = &Literal{BOOL, "Boolean"}
 	Str  OBJType = &Literal{STRING, "String"}
 	Any  OBJType = &Literal{ANY, "Any"}
 )

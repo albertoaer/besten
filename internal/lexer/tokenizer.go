@@ -27,7 +27,8 @@ type Token struct {
 var string_mark rune = '"'
 var decimal_mark rune = '.'
 var negative_mark rune = '-'
-var keywords []string = []string{"require", "import", "struct", "return", "fn", "op", "do", "val", "var", "for", "while", "collect", "done", "throw", "catch"}
+var keywords []string = []string{"require", "import", "struct", "return", "fn", "op", "do",
+	"val", "var", "for", "while", "collect", "done", "throw", "catch", "true", "false"}
 
 func strArrContains(arr []string, elem string) bool {
 	for _, a := range arr {

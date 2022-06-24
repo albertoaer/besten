@@ -25,4 +25,6 @@ var (
 	PCLOSE         = Token{Data: ")", Kind: OperatorToken}
 	BOPEN          = Token{Data: "[", Kind: OperatorToken}
 	BCLOSE         = Token{Data: "]", Kind: OperatorToken}
+	TRUE           = Token{Data: "true", Kind: KeywordToken}
+	FALSE          = Token{Data: "false", Kind: KeywordToken}
 )

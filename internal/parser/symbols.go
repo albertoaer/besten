@@ -59,9 +59,13 @@ func injectBuiltinOperators(to *FunctionCollection) {
 	to.AddSymbols("%", wrapOpInstruction(MOD, Int, false))
 	to.AddSymbols("==", multiTypeInstruction(2, Int, map[OBJType]ICode{Str: EQS, Int: EQI, Dec: EQD}))
 	to.AddSymbols("!", wrapOpInstruction(NOT, Int, true))
-	to.AddSymbols("&&", wrapOpInstruction(AND, Int, false))
-	to.AddSymbols("||", wrapOpInstruction(OR, Int, false))
-	to.AddSymbols("^^", wrapOpInstruction(XOR, Int, false))
+	to.AddSymbols("&", wrapOpInstruction(AND, Int, false))
+	to.AddSymbols("|", wrapOpInstruction(OR, Int, false))
+	to.AddSymbols("^", wrapOpInstruction(XOR, Int, false))
+	to.AddSymbols("!", wrapOpInstruction(NOT, Bool, true))
+	to.AddSymbols("&&", wrapOpInstruction(AND, Bool, false))
+	to.AddSymbols("||", wrapOpInstruction(OR, Bool, false))
+	to.AddSymbols("^^", wrapOpInstruction(XOR, Bool, false))
 }
 
 type Variable struct {

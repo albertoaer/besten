@@ -84,7 +84,7 @@ func (p *Parser) generateFunctionFromTemplate(name string, operator bool, caller
 		if operator {
 			symboltype = "operator"
 		}
-		err = errors.New(fmt.Sprintf("There is %s symbol %s/%d for the requested arguments", symboltype, name, len(callers)))
+		err = errors.New(fmt.Sprintf("There is no %s symbol %s/%d for %s", symboltype, name, len(callers), ArrRepr(callers)))
 		return
 	}
 	compilename := generateFnUUID(name, p.modulename, len(callers))

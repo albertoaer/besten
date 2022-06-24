@@ -35,6 +35,16 @@ func (s *syntaxLiteral) runIntoStack(p *Parser, stack *[]Instruction) (OBJType, 
 			return Void, e
 		}
 		ins = MKInstruction(PSH, f)
+	case KeywordToken:
+		toret = Bool
+		if s.value == TRUE.Data {
+			ins = MKInstruction(PSH, -1)
+			break
+		} else if s.value == FALSE.Data {
+			ins = MKInstruction(PSH, 0)
+			break
+		}
+		fallthrough
 	default:
 		return nil, errors.New("Wrong literal")
 	}
@@ -44,7 +54,7 @@ func (s *syntaxLiteral) runIntoStack(p *Parser, stack *[]Instruction) (OBJType, 
 
 func isLiteral(tk Token) bool {
 	kind := tk.Kind
-	return kind == StringToken || kind == IntegerToken || kind == DecimalToken
+	return kind == StringToken || kind == IntegerToken || kind == DecimalToken || tk == TRUE || tk == FALSE
 }
 
 func getRoute(tk []Token) ([]string, error) {
@@ -162,7 +172,25 @@ type syntaxHighLevelCall struct {
 }
 
 func (s *syntaxHighLevelCall) runIntoStack(p *Parser, stack *[]Instruction) (OBJType, error) {
-	return Void, nil
+	if s.relation == nil || len(s.relation.route) == 0 {
+		return Void, errors.New("No way to fetch function")
+	}
+	if s.relation.origin != nil {
+		return Void, errors.New("A function must always be global defined")
+	}
+	if len(s.relation.route) > 1 {
+		return Void, errors.New("Not implemented function route navigation")
+	}
+	ops := make([]OBJType, len(s.operands))
+	for i := len(s.operands) - 1; i >= 0; i-- {
+		var e error
+		if ops[len(s.operands)-1-i], e = s.operands[i].runIntoStack(p, stack); e != nil {
+			return nil, e
+		}
+	}
+	ins, ret, err := p.solveFunctionCall(s.relation.route[0], false, ops)
+	*stack = append(*stack, ins)
+	return ret, err
 }
 
 type syntaxBranch interface {
@@ -468,7 +496,7 @@ func splitFirstLevelFunctionCall(tks []Token, haslambda bool, children []Block) 
 }
 
 func substractModifiers(tks []Token) ([]Token, [][]Token, error) {
-	ttks, err := splitByToken(tks, func(t Token) bool { return t.Kind == KeywordToken }, []struct {
+	ttks, err := splitByToken(tks, func(t Token) bool { return t.Kind == KeywordToken && t != TRUE && t != FALSE }, []struct {
 		open  Token
 		close Token
 	}{{POPEN, PCLOSE}, {BOPEN, BCLOSE}}, true, true)
