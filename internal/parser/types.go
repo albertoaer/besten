@@ -138,7 +138,7 @@ var (
 	Void OBJType = &Literal{VOID, "Void", nil}
 	Int  OBJType = &Literal{INTEGER, "Int", 0}
 	Dec  OBJType = &Literal{DECIMAL, "Dec", float64(0.0)}
-	Bool OBJType = &Literal{BOOL, "Bool", true}
+	Bool OBJType = &Literal{BOOL, "Bool", 0}
 	Str  OBJType = &Literal{STRING, "Str", ""}
 	Any  OBJType = &Literal{ANY, "Any", nil}
 )
