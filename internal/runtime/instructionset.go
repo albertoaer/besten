@@ -31,18 +31,26 @@ const (
 	IPA = 24 //int parse (to int)
 	DPA = 25 //double parse (to double)
 
-	//EQUALITY
+	//COMPARISON
 
 	EQI = 30
 	EQD = 31
 	EQS = 32
+	ILE = 33 //int less
+	DLE = 34 //double less
+	IGR = 35 //int greater
+	DGR = 36 //double greater
+	ILQ = 37 //int less equals
+	DLQ = 38 //double less equals
+	IGQ = 39 //int greater equals
+	DGQ = 40 //double greater equals
 
 	//LOGIC
 
-	NOT = 40
-	AND = 41
-	OR  = 42
-	XOR = 43
+	NOT = 50
+	AND = 51
+	OR  = 52
+	XOR = 53
 
 	//STRINGS
 
@@ -117,6 +125,14 @@ type Operation struct {
 
 var operations map[ICode]Operation
 
+func (proc *Process) logicPush(val bool) {
+	if val {
+		proc.Push(1)
+	} else {
+		proc.Push(0)
+	}
+}
+
 func init() {
 	operations = make(map[ICode]Operation)
 
@@ -177,27 +193,39 @@ func init() {
 		proc.Push(f)
 	}, 1}
 
-	//EQUALITY
+	//COMPARISON
 	operations[EQI] = Operation{func(proc *Process, l ...Object) {
-		if l[0].(int) == l[1].(int) {
-			proc.Push(1)
-		} else {
-			proc.Push(0)
-		}
+		proc.logicPush(l[0].(int) == l[1].(int))
 	}, 2}
 	operations[EQD] = Operation{func(proc *Process, l ...Object) {
-		if l[0].(float64) == l[1].(float64) {
-			proc.Push(1)
-		} else {
-			proc.Push(0)
-		}
+		proc.logicPush(l[0].(float64) == l[1].(float64))
 	}, 2}
 	operations[EQS] = Operation{func(proc *Process, l ...Object) {
-		if l[0].(string) == l[1].(string) {
-			proc.Push(1)
-		} else {
-			proc.Push(0)
-		}
+		proc.logicPush(l[0].(string) == l[1].(string))
+	}, 2}
+	operations[ILE] = Operation{func(proc *Process, l ...Object) {
+		proc.logicPush(l[0].(int) < l[1].(int))
+	}, 2}
+	operations[DLE] = Operation{func(proc *Process, l ...Object) {
+		proc.logicPush(l[0].(float64) < l[1].(float64))
+	}, 2}
+	operations[IGR] = Operation{func(proc *Process, l ...Object) {
+		proc.logicPush(l[0].(int) > l[1].(int))
+	}, 2}
+	operations[DGR] = Operation{func(proc *Process, l ...Object) {
+		proc.logicPush(l[0].(float64) > l[1].(float64))
+	}, 2}
+	operations[ILQ] = Operation{func(proc *Process, l ...Object) {
+		proc.logicPush(l[0].(int) <= l[1].(int))
+	}, 2}
+	operations[DLQ] = Operation{func(proc *Process, l ...Object) {
+		proc.logicPush(l[0].(float64) <= l[1].(float64))
+	}, 2}
+	operations[IGQ] = Operation{func(proc *Process, l ...Object) {
+		proc.logicPush(l[0].(int) >= l[1].(int))
+	}, 2}
+	operations[DGQ] = Operation{func(proc *Process, l ...Object) {
+		proc.logicPush(l[0].(float64) >= l[1].(float64))
 	}, 2}
 
 	//LOGIC
@@ -290,12 +318,12 @@ func init() {
 		proc.pc += l[0].(int)
 	}, 1}
 	operations[MVT] = Operation{func(proc *Process, l ...Object) {
-		if l[1].(int) != 1 {
+		if l[1].(int) != 0 {
 			proc.pc += l[0].(int)
 		}
 	}, 2}
 	operations[MVF] = Operation{func(proc *Process, l ...Object) {
-		if l[1].(int) == 1 {
+		if l[1].(int) == 0 {
 			proc.pc += l[0].(int)
 		}
 	}, 2}
