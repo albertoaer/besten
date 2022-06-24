@@ -42,7 +42,7 @@ func injectBuiltinFunctions(to *FunctionCollection) {
 	to.AddSymbol("print", &FunctionSymbol{"none", false, MKInstruction(IFD, EmbeddedFunction{
 		Name:     "print",
 		ArgCount: 1,
-		Function: func(args ...Object) Object {
+		Function: func(args []Object) Object {
 			fmt.Println(args[0])
 			return nil
 		},

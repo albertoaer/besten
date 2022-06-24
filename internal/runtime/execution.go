@@ -8,7 +8,7 @@ import (
 type PID *Process
 
 type VM struct {
-	symbols  map[string]Symbol //Loaded instructions
+	symbols  map[string]*Symbol //Loaded instructions
 	embedded map[string]EmbeddedFunction
 }
 
@@ -17,11 +17,13 @@ type Process struct {
 	parent        PID    //Parent process (the one who called)
 	state         Object //Object state
 	pc            int    //Current instruction
-	symbol        Symbol
+	symbol        *Symbol
 	functionstack *FunctionStack //Function stack
 	done          chan error     //Is Process done?
 	callstack     *CallStack
-	items         *ItemManager
+	env           Environment
+	locals        Locals
+	workingObject Object //Manipulable object
 }
 
 /*
@@ -29,7 +31,7 @@ VM Zone
 */
 
 func NewVM() *VM {
-	vm := &VM{make(map[string]Symbol), make(map[string]EmbeddedFunction)}
+	vm := &VM{make(map[string]*Symbol), make(map[string]EmbeddedFunction)}
 	return vm
 }
 
@@ -38,22 +40,22 @@ func (vm *VM) spawn(parent PID, fr string, stack *FunctionStack) (PID, error) {
 	if !ex {
 		return nil, errors.New(fmt.Sprintf("Symbol %s not found", fr))
 	}
-	i, err := ItemManagerForCall(stack, sym.BuiltInfo.Args, sym.BuiltInfo.Varargs, 20)
+	i, err := EnvironmentForCall(stack, sym.BuiltInfo.Args, sym.BuiltInfo.Varargs)
 	if err != nil {
 		return nil, err
 	}
 	process := &Process{vm, parent, nil, 0, sym, stack,
-		make(chan error), NewCallStack(), i}
+		make(chan error), NewCallStack(10000), i, Locals{}, nil}
 	go process.run()
 	return process, nil
 }
 
 func (vm *VM) Spawn(fr string) (PID, error) {
-	return vm.spawn(nil, fr, NewFunctionStack(20))
+	return vm.spawn(nil, fr, NewFunctionStack(10000))
 }
 
 func (vm *VM) InitSpawn(fr string, stack []Object) (PID, error) {
-	fs := NewFunctionStack(20)
+	fs := NewFunctionStack(10000)
 	if stack != nil {
 		for _, o := range stack {
 			fs.Push(o)
@@ -76,7 +78,13 @@ func (vm *VM) LoadSymbol(entry Symbol) {
 	if _, e := vm.symbols[entry.Name]; e {
 		panic("Overwriting symbol")
 	}
-	vm.symbols[entry.Name] = entry
+	for _, item := range entry.Source {
+		if operations[item.Code].Operands < item.sz {
+			panic(errors.New("Too much operands for instruction"))
+		}
+	}
+	sym := entry
+	vm.symbols[entry.Name] = &sym
 }
 
 func (vm *VM) LoadSymbols(symbols map[string]Symbol) {
@@ -109,30 +117,42 @@ func (proc *Process) ReturnLastPoint() {
 	point := proc.callstack.Current()
 	if point == nil {
 		/*
-			Send to last instruction
-			Will force process to end
+			If not element at the stack
+			Returning will force process to end
 		*/
 		proc.pc = len(proc.symbol.Source) + 1
 	} else {
 		proc.callstack.Pop()
-		proc.symbol = point.fragment
+		proc.symbol = point.symbol
 		proc.pc = point.pc
+		proc.env = point.env
+		proc.locals = point.locals
 	}
 }
 
-func (proc *Process) SavePoint() {
-	proc.callstack.Insert(proc.pc, proc.symbol, proc.items)
-}
-
-func (proc *Process) ChangeFragment(name string) {
+func (proc *Process) CallFragment(name string) {
+	proc.callstack.Insert(proc.pc, proc.symbol, proc.env, proc.locals)
 	if proc.symbol.Name != name {
 		proc.symbol = proc.machine.symbols[name]
 	}
-	items, err := ItemManagerForCall(proc.functionstack, proc.symbol.BuiltInfo.Args, proc.symbol.BuiltInfo.Varargs, 20)
+	env, err := EnvironmentForCall(proc.functionstack, proc.symbol.BuiltInfo.Args, proc.symbol.BuiltInfo.Varargs)
 	if err != nil {
 		panic(err)
 	}
-	proc.items = items
+	proc.env = env
+	//Locals will be overwritten
+	proc.pc = 0
+}
+
+func (proc *Process) JumpToFragment(name string) {
+	if proc.symbol.Name != name {
+		proc.symbol = proc.machine.symbols[name]
+	}
+	env, err := EnvironmentForCall(proc.functionstack, proc.symbol.BuiltInfo.Args, proc.symbol.BuiltInfo.Varargs)
+	if err != nil {
+		panic(err)
+	}
+	proc.env = env
 	proc.pc = 0
 }
 
@@ -145,34 +165,35 @@ func (proc *Process) Invoke(name string) {
 }
 
 func (proc *Process) DirectInvoke(fn EmbeddedFunction) {
-	args := proc.fetchArguments(uint(fn.ArgCount))
-	r := fn.Function(args...)
+	args := make([]Object, fn.ArgCount)
+	for i := 0; i < fn.ArgCount; i++ {
+		args[i] = proc.functionstack.Pop()
+	}
+	r := fn.Function(args)
 	if fn.Returns {
 		proc.functionstack.Push(r)
 	}
 }
 
+func (proc *Process) EditState() {
+	proc.workingObject = proc.state
+}
+
+func (proc *Process) SaveState() {
+	proc.state = proc.workingObject
+}
+
+func (proc *Process) SetWorkingObject(obj Object) {
+	proc.workingObject = obj
+}
+
+func (proc *Process) GetWorkingObject() Object {
+	return proc.workingObject
+}
+
 /*
 Run zone
 */
-
-/*
-Each operation has a fixed number of arguments,
-the first ones are taken from the operands, the rest from the stack
-*/
-func (proc *Process) fetchArguments(num uint, operands ...Object) []Object {
-	args := operands
-	if uint(len(operands)) > num {
-		panic(errors.New("Too much operands for instruction"))
-	} else {
-		ref := num - uint(len(operands))
-		for ; ref > 0; ref-- {
-			res := proc.functionstack.Pop()
-			args = append(args, res)
-		}
-	}
-	return args
-}
 
 func (proc *Process) run() {
 	defer func() {
@@ -182,7 +203,7 @@ func (proc *Process) run() {
 		}
 	}()
 	for {
-		if int(proc.pc) >= len(proc.symbol.Source) {
+		if proc.pc >= len(proc.symbol.Source) {
 			proc.done <- nil
 			break
 		}
@@ -192,8 +213,14 @@ func (proc *Process) run() {
 		if fn.Action == nil {
 			panic(errors.New(fmt.Sprintf("No operation fetched for opcode: %d", ins.Code)))
 		} else {
-			args := proc.fetchArguments(fn.Operands, ins.Operands...)
-			fn.Action(proc, args...)
+			switch fn.Operands - ins.sz {
+			case 1:
+				ins.operands[ins.sz] = proc.functionstack.Pop()
+			case 2:
+				ins.operands[0] = proc.functionstack.Pop()
+				ins.operands[1] = proc.functionstack.Pop()
+			}
+			fn.Action(proc, ins.operands)
 		}
 	}
 }

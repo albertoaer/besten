@@ -95,6 +95,8 @@ const (
 	SVI = 167 //Set vector item at position
 	DMI = 168 //Delete map item
 	CSE = 169 //Collapse stack elements
+	WTP = 170 //Work to push
+	PTW = 171 //Push to work
 
 	//STATE
 
@@ -119,75 +121,66 @@ const (
 )
 
 type Operation struct {
-	Action   func(*Process, ...Object)
-	Operands uint
+	Action   func(*Process, [2]Object)
+	Operands int
 }
 
-var operations []Operation
-
-func (proc *Process) logicPush(val bool) {
-	if val {
-		proc.functionstack.Push(1)
-	} else {
-		proc.functionstack.Push(0)
-	}
-}
+var operations [LDOP]Operation
 
 func init() {
-	operations = make([]Operation, LDOP)
 
-	operations[NOP] = Operation{func(proc *Process, l ...Object) {}, 0}
+	operations[NOP] = Operation{func(proc *Process, l [2]Object) {}, 0}
 
 	//ARITHMETIC
-	operations[ADD] = Operation{func(proc *Process, l ...Object) {
+	operations[ADD] = Operation{func(proc *Process, l [2]Object) {
 		proc.functionstack.Push(l[0].(int) + l[1].(int))
 	}, 2}
-	operations[SUB] = Operation{func(proc *Process, l ...Object) {
+	operations[SUB] = Operation{func(proc *Process, l [2]Object) {
 		proc.functionstack.Push(l[0].(int) - l[1].(int))
 	}, 2}
-	operations[MUL] = Operation{func(proc *Process, l ...Object) {
+	operations[MUL] = Operation{func(proc *Process, l [2]Object) {
 		proc.functionstack.Push(l[0].(int) * l[1].(int))
 	}, 2}
-	operations[DIV] = Operation{func(proc *Process, l ...Object) {
+	operations[DIV] = Operation{func(proc *Process, l [2]Object) {
 		proc.functionstack.Push(l[0].(int) / l[1].(int))
 	}, 2}
-	operations[MOD] = Operation{func(proc *Process, l ...Object) {
+	operations[MOD] = Operation{func(proc *Process, l [2]Object) {
 		proc.functionstack.Push(l[0].(int) % l[1].(int))
 	}, 2}
-	operations[ADDF] = Operation{func(proc *Process, l ...Object) {
+	operations[ADDF] = Operation{func(proc *Process, l [2]Object) {
 		proc.functionstack.Push(l[0].(float64) + l[1].(float64))
 	}, 2}
-	operations[SUBF] = Operation{func(proc *Process, l ...Object) {
+	operations[SUBF] = Operation{func(proc *Process, l [2]Object) {
 		proc.functionstack.Push(l[0].(float64) - l[1].(float64))
 	}, 2}
-	operations[MULF] = Operation{func(proc *Process, l ...Object) {
+	operations[MULF] = Operation{func(proc *Process, l [2]Object) {
 		proc.functionstack.Push(l[0].(float64) * l[1].(float64))
 	}, 2}
-	operations[DIVF] = Operation{func(proc *Process, l ...Object) {
+	operations[DIVF] = Operation{func(proc *Process, l [2]Object) {
 		proc.functionstack.Push(l[0].(float64) / l[1].(float64))
 	}, 2}
 
 	//CONVERSION
-	operations[ITD] = Operation{func(proc *Process, l ...Object) {
+	operations[ITD] = Operation{func(proc *Process, l [2]Object) {
 		proc.functionstack.Push(float64(l[0].(int)))
 	}, 1}
-	operations[DTI] = Operation{func(proc *Process, l ...Object) {
+	operations[DTI] = Operation{func(proc *Process, l [2]Object) {
 		proc.functionstack.Push(int(l[0].(float64)))
 	}, 1}
-	operations[IRE] = Operation{func(proc *Process, l ...Object) {
+	operations[IRE] = Operation{func(proc *Process, l [2]Object) {
 		proc.functionstack.Push(strconv.Itoa(l[0].(int)))
 	}, 1}
-	operations[DRE] = Operation{func(proc *Process, l ...Object) {
+	operations[DRE] = Operation{func(proc *Process, l [2]Object) {
 		proc.functionstack.Push(fmt.Sprintf("%g", l[0].(float64)))
 	}, 1}
-	operations[IPA] = Operation{func(proc *Process, l ...Object) {
+	operations[IPA] = Operation{func(proc *Process, l [2]Object) {
 		i, e := strconv.Atoi(l[0].(string))
 		if e != nil {
 			panic(e)
 		}
 		proc.functionstack.Push(i)
 	}, 1}
-	operations[DPA] = Operation{func(proc *Process, l ...Object) {
+	operations[DPA] = Operation{func(proc *Process, l [2]Object) {
 		f, e := strconv.ParseFloat(l[0].(string), 64)
 		if e != nil {
 			panic(e)
@@ -196,168 +189,211 @@ func init() {
 	}, 1}
 
 	//COMPARISON
-	operations[EQI] = Operation{func(proc *Process, l ...Object) {
-		proc.logicPush(l[0].(int) == l[1].(int))
+	operations[EQI] = Operation{func(proc *Process, l [2]Object) {
+		if l[0].(int) == l[1].(int) {
+			proc.functionstack.Push(1)
+		} else {
+			proc.functionstack.Push(0)
+		}
 	}, 2}
-	operations[EQD] = Operation{func(proc *Process, l ...Object) {
-		proc.logicPush(l[0].(float64) == l[1].(float64))
+	operations[EQD] = Operation{func(proc *Process, l [2]Object) {
+		if l[0].(float64) == l[1].(float64) {
+			proc.functionstack.Push(1)
+		} else {
+			proc.functionstack.Push(0)
+		}
 	}, 2}
-	operations[EQS] = Operation{func(proc *Process, l ...Object) {
-		proc.logicPush(l[0].(string) == l[1].(string))
+	operations[EQS] = Operation{func(proc *Process, l [2]Object) {
+		if l[0].(string) == l[1].(string) {
+			proc.functionstack.Push(1)
+		} else {
+			proc.functionstack.Push(0)
+		}
 	}, 2}
-	operations[ILE] = Operation{func(proc *Process, l ...Object) {
-		proc.logicPush(l[0].(int) < l[1].(int))
+	operations[ILE] = Operation{func(proc *Process, l [2]Object) {
+		if l[0].(int) < l[1].(int) {
+			proc.functionstack.Push(1)
+		} else {
+			proc.functionstack.Push(0)
+		}
 	}, 2}
-	operations[DLE] = Operation{func(proc *Process, l ...Object) {
-		proc.logicPush(l[0].(float64) < l[1].(float64))
+	operations[DLE] = Operation{func(proc *Process, l [2]Object) {
+		if l[0].(float64) < l[1].(float64) {
+			proc.functionstack.Push(1)
+		} else {
+			proc.functionstack.Push(0)
+		}
 	}, 2}
-	operations[IGR] = Operation{func(proc *Process, l ...Object) {
-		proc.logicPush(l[0].(int) > l[1].(int))
+	operations[IGR] = Operation{func(proc *Process, l [2]Object) {
+		if l[0].(int) > l[1].(int) {
+			proc.functionstack.Push(1)
+		} else {
+			proc.functionstack.Push(0)
+		}
 	}, 2}
-	operations[DGR] = Operation{func(proc *Process, l ...Object) {
-		proc.logicPush(l[0].(float64) > l[1].(float64))
+	operations[DGR] = Operation{func(proc *Process, l [2]Object) {
+		if l[0].(float64) > l[1].(float64) {
+			proc.functionstack.Push(1)
+		} else {
+			proc.functionstack.Push(0)
+		}
 	}, 2}
-	operations[ILQ] = Operation{func(proc *Process, l ...Object) {
-		proc.logicPush(l[0].(int) <= l[1].(int))
+	operations[ILQ] = Operation{func(proc *Process, l [2]Object) {
+		if l[0].(int) <= l[1].(int) {
+			proc.functionstack.Push(1)
+		} else {
+			proc.functionstack.Push(0)
+		}
 	}, 2}
-	operations[DLQ] = Operation{func(proc *Process, l ...Object) {
-		proc.logicPush(l[0].(float64) <= l[1].(float64))
+	operations[DLQ] = Operation{func(proc *Process, l [2]Object) {
+		if l[0].(float64) <= l[1].(float64) {
+			proc.functionstack.Push(1)
+		} else {
+			proc.functionstack.Push(0)
+		}
 	}, 2}
-	operations[IGQ] = Operation{func(proc *Process, l ...Object) {
-		proc.logicPush(l[0].(int) >= l[1].(int))
+	operations[IGQ] = Operation{func(proc *Process, l [2]Object) {
+		if l[0].(int) >= l[1].(int) {
+			proc.functionstack.Push(1)
+		} else {
+			proc.functionstack.Push(0)
+		}
 	}, 2}
-	operations[DGQ] = Operation{func(proc *Process, l ...Object) {
-		proc.logicPush(l[0].(float64) >= l[1].(float64))
+	operations[DGQ] = Operation{func(proc *Process, l [2]Object) {
+		if l[0].(float64) >= l[1].(float64) {
+			proc.functionstack.Push(1)
+		} else {
+			proc.functionstack.Push(0)
+		}
 	}, 2}
 
 	//LOGIC
-	operations[NOT] = Operation{func(proc *Process, l ...Object) {
+	operations[NOT] = Operation{func(proc *Process, l [2]Object) {
 		proc.functionstack.Push(^l[0].(int))
 	}, 1}
-	operations[AND] = Operation{func(proc *Process, l ...Object) {
+	operations[AND] = Operation{func(proc *Process, l [2]Object) {
 		proc.functionstack.Push(l[0].(int) & l[1].(int))
 	}, 2}
-	operations[OR] = Operation{func(proc *Process, l ...Object) {
+	operations[OR] = Operation{func(proc *Process, l [2]Object) {
 		proc.functionstack.Push(l[0].(int) | l[1].(int))
 	}, 2}
-	operations[XOR] = Operation{func(proc *Process, l ...Object) {
+	operations[XOR] = Operation{func(proc *Process, l [2]Object) {
 		proc.functionstack.Push(l[0].(int) ^ l[1].(int))
 	}, 2}
 
 	//STRINGS
-	operations[CCS] = Operation{func(proc *Process, l ...Object) {
+	operations[CCS] = Operation{func(proc *Process, l [2]Object) {
 		proc.functionstack.Push(l[0].(string) + l[1].(string))
 	}, 2}
-	operations[CAI] = Operation{func(proc *Process, l ...Object) {
+	operations[CAI] = Operation{func(proc *Process, l [2]Object) {
 		proc.functionstack.Push(l[0].(string)[l[1].(int)])
 	}, 2}
 
 	//MEMORY
-	operations[LEI] = Operation{func(proc *Process, l ...Object) {
-		proc.functionstack.Push(proc.items.GetEnvironment(l[0].(int)))
+	operations[LEI] = Operation{func(proc *Process, l [2]Object) {
+		proc.functionstack.Push(proc.env.GetEnvironment(l[0].(int)))
 	}, 1}
-	operations[SEI] = Operation{func(proc *Process, l ...Object) {
-		proc.items.SetEnvironment(l[0].(int), l[1])
+	operations[SEI] = Operation{func(proc *Process, l [2]Object) {
+		proc.env.SetEnvironment(l[0].(int), l[1])
 	}, 2}
-	operations[LLI] = Operation{func(proc *Process, l ...Object) {
-		proc.functionstack.Push(proc.items.GetLocal(l[0].(int)))
+	operations[LLI] = Operation{func(proc *Process, l [2]Object) {
+		proc.functionstack.Push(proc.locals.GetLocal(l[0].(int)))
 	}, 1}
-	operations[SLI] = Operation{func(proc *Process, l ...Object) {
-		proc.items.SetLocal(l[0].(int), l[1])
+	operations[SLI] = Operation{func(proc *Process, l [2]Object) {
+		proc.locals.SetLocal(l[0].(int), l[1])
 	}, 2}
 
 	//STACK
-	operations[PSH] = Operation{func(proc *Process, l ...Object) {
+	operations[PSH] = Operation{func(proc *Process, l [2]Object) {
 		proc.functionstack.Push(l[0])
 	}, 1}
-	operations[POP] = Operation{func(proc *Process, l ...Object) {
+	operations[POP] = Operation{func(proc *Process, l [2]Object) {
 		//Just consumes the value
 	}, 1}
-	operations[CLR] = Operation{func(proc *Process, l ...Object) {
+	operations[CLR] = Operation{func(proc *Process, l [2]Object) {
 		proc.functionstack.Clear()
 	}, 0}
-	operations[DUP] = Operation{func(proc *Process, l ...Object) {
+	operations[DUP] = Operation{func(proc *Process, l [2]Object) {
 		proc.functionstack.Push(l[0])
 		proc.functionstack.Push(l[0])
 	}, 1}
-	operations[SWT] = Operation{func(proc *Process, l ...Object) {
+	operations[SWT] = Operation{func(proc *Process, l [2]Object) {
 		proc.functionstack.Push(l[0])
 		proc.functionstack.Push(l[1])
 	}, 2}
 
 	//CONTROL
-	operations[CLL] = Operation{func(proc *Process, l ...Object) {
-		proc.SavePoint()
-		proc.ChangeFragment(l[0].(string))
+	operations[CLL] = Operation{func(proc *Process, l [2]Object) {
+		proc.CallFragment(l[0].(string))
 	}, 1}
-	operations[JMP] = Operation{func(proc *Process, l ...Object) {
-		proc.ChangeFragment(l[0].(string))
+	operations[JMP] = Operation{func(proc *Process, l [2]Object) {
+		proc.JumpToFragment(l[0].(string))
 	}, 1}
-	operations[RET] = Operation{func(proc *Process, l ...Object) {
+	operations[RET] = Operation{func(proc *Process, l [2]Object) {
 		proc.ReturnLastPoint()
 	}, 0}
-	operations[SKT] = Operation{func(proc *Process, l ...Object) {
+	operations[SKT] = Operation{func(proc *Process, l [2]Object) {
 		if l[0].(int) != 0 {
 			proc.pc++
 		}
 	}, 1}
-	operations[SKF] = Operation{func(proc *Process, l ...Object) {
+	operations[SKF] = Operation{func(proc *Process, l [2]Object) {
 		if l[0].(int) == 0 {
 			proc.pc++
 		}
 	}, 1}
-	operations[MVR] = Operation{func(proc *Process, l ...Object) {
+	operations[MVR] = Operation{func(proc *Process, l [2]Object) {
 		proc.pc += l[0].(int)
 	}, 1}
-	operations[MVT] = Operation{func(proc *Process, l ...Object) {
+	operations[MVT] = Operation{func(proc *Process, l [2]Object) {
 		if l[1].(int) != 0 {
 			proc.pc += l[0].(int)
 		}
 	}, 2}
-	operations[MVF] = Operation{func(proc *Process, l ...Object) {
+	operations[MVF] = Operation{func(proc *Process, l [2]Object) {
 		if l[1].(int) == 0 {
 			proc.pc += l[0].(int)
 		}
 	}, 2}
 
 	//MAPS AND VECTORS
-	operations[KVC] = Operation{func(proc *Process, l ...Object) {
-		proc.functionstack.Push(make(MapT))
+	operations[KVC] = Operation{func(proc *Process, l [2]Object) {
+		proc.SetWorkingObject(make(MapT))
 	}, 0}
-	operations[PRP] = Operation{func(proc *Process, l ...Object) {
-		proc.functionstack.Push((l[0].(MapT))[l[1].(string)])
+	operations[PRP] = Operation{func(proc *Process, l [2]Object) {
+		proc.functionstack.Push((proc.GetWorkingObject().(MapT))[l[0].(string)])
+	}, 1}
+	operations[ATT] = Operation{func(proc *Process, l [2]Object) {
+		(proc.GetWorkingObject().(MapT))[l[0].(string)] = l[1]
 	}, 2}
-	operations[ATT] = Operation{func(proc *Process, l ...Object) {
-		(l[0].(MapT))[l[1].(string)] = l[2]
-	}, 3}
-	operations[EXK] = Operation{func(proc *Process, l ...Object) {
-		if _, exists := (l[0].(MapT))[l[1].(string)]; exists {
+	operations[EXK] = Operation{func(proc *Process, l [2]Object) {
+		if _, exists := (proc.GetWorkingObject().(MapT))[l[0].(string)]; exists {
 			proc.functionstack.Push(1)
 		} else {
 			proc.functionstack.Push(0)
 		}
-	}, 2}
-	operations[VEC] = Operation{func(proc *Process, l ...Object) {
+	}, 1}
+	operations[VEC] = Operation{func(proc *Process, l [2]Object) {
 		vec := make([]Object, 0)
 		var vecref VecT = &vec
-		proc.functionstack.Push(vecref)
+		proc.SetWorkingObject(vecref)
 	}, 0}
-	operations[ACC] = Operation{func(proc *Process, l ...Object) {
-		proc.functionstack.Push((*(l[0].(VecT)))[l[1].(int)])
-	}, 2}
-	operations[APP] = Operation{func(proc *Process, l ...Object) {
-		vec := l[0].(VecT)
+	operations[ACC] = Operation{func(proc *Process, l [2]Object) {
+		proc.functionstack.Push((*(proc.GetWorkingObject().(VecT)))[l[0].(int)])
+	}, 1}
+	operations[APP] = Operation{func(proc *Process, l [2]Object) {
+		vec := proc.GetWorkingObject().(VecT)
 		*vec = append(*vec, l[1])
+	}, 1}
+	operations[SVI] = Operation{func(proc *Process, l [2]Object) {
+		vec := *(proc.GetWorkingObject().(VecT))
+		vec[l[0].(int)] = l[1]
 	}, 2}
-	operations[SVI] = Operation{func(proc *Process, l ...Object) {
-		vec := *(l[0].(VecT))
-		vec[l[1].(int)] = l[2]
-	}, 3}
-	operations[DMI] = Operation{func(proc *Process, l ...Object) {
-		m := l[0].(MapT)
-		delete(m, l[1].(string))
-	}, 2}
-	operations[CSE] = Operation{func(proc *Process, l ...Object) {
+	operations[DMI] = Operation{func(proc *Process, l [2]Object) {
+		m := proc.GetWorkingObject().(MapT)
+		delete(m, l[0].(string))
+	}, 1}
+	operations[CSE] = Operation{func(proc *Process, l [2]Object) {
 		vec := make([]Object, 0)
 		var vecref VecT = &vec
 		sz := l[0].(int)
@@ -368,22 +404,28 @@ func init() {
 			res := proc.functionstack.Pop()
 			*vecref = append(*vecref, res)
 		}
-		proc.functionstack.Push(vecref)
+		proc.SetWorkingObject(vecref)
+	}, 1}
+	operations[WTP] = Operation{func(proc *Process, l [2]Object) {
+		proc.functionstack.Push(proc.GetWorkingObject())
+	}, 0}
+	operations[PTW] = Operation{func(proc *Process, l [2]Object) {
+		proc.SetWorkingObject(l[0])
 	}, 1}
 
 	//STATE
-	operations[SWR] = Operation{func(proc *Process, l ...Object) {
+	operations[SWR] = Operation{func(proc *Process, l [2]Object) {
 		proc.state = l[0]
 	}, 1}
-	operations[SRE] = Operation{func(proc *Process, l ...Object) {
+	operations[SRE] = Operation{func(proc *Process, l [2]Object) {
 		proc.functionstack.Push(proc.state)
 	}, 0}
 
 	//Interaction
-	operations[INV] = Operation{func(proc *Process, l ...Object) {
+	operations[INV] = Operation{func(proc *Process, l [2]Object) {
 		proc.Invoke(l[0].(string))
 	}, 1}
-	operations[IFD] = Operation{func(proc *Process, l ...Object) {
+	operations[IFD] = Operation{func(proc *Process, l [2]Object) {
 		proc.DirectInvoke(l[0].(EmbeddedFunction))
 	}, 1}
 }

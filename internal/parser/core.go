@@ -110,7 +110,7 @@ func (p *Parser) parseDefinition(block Block, constant bool) error {
 	if e != nil {
 		return e
 	}
-	ret, e := p.parseExpression(tks, block.Children, true)
+	ret, e := p.parseExpression(tks, block.Children, false)
 	if e != nil {
 		return e
 	}

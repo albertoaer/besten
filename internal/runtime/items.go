@@ -4,7 +4,7 @@ import "errors"
 
 type FunctionStack struct {
 	data  []Object
-	index uint
+	index int
 }
 
 func NewFunctionStack(gensize uint) *FunctionStack {
@@ -18,8 +18,9 @@ func (fs *FunctionStack) Clear() {
 }
 
 func (fs *FunctionStack) Push(o Object) {
-	if fs.index >= uint(len(fs.data)) {
-		panic("Unexpected situation, stack overflow")
+	if fs.index >= len(fs.data) {
+		//fs.data = append(fs.data, nil)
+		panic("Unexpected situation, function stack overflow")
 	}
 	fs.data[fs.index] = o
 	fs.index += 1
@@ -42,50 +43,49 @@ func (fs *FunctionStack) Clone() *FunctionStack {
 	return fn
 }
 
-type ItemManager struct {
-	locals      []Object
-	environment []Object
+type Environment struct {
+	args [8]Object
 }
 
-func NewItemManager(localsnum int) *ItemManager {
-	return &ItemManager{make([]Object, localsnum), make([]Object, 0)}
-}
-
-func ItemManagerForCall(fs *FunctionStack, variables int, varargs bool, localsnum int) (*ItemManager, error) {
+func EnvironmentForCall(fs *FunctionStack, variables int, varargs bool) (Environment, error) {
 	extra := 0
-	objs := make([]Object, 0)
+	items := Environment{}
 	var varargsvec VecT
 	for i := 0; i < variables+extra; i++ {
 		o := fs.Pop()
 		if i == variables-1 && varargs {
 			i, e := o.(int)
 			if !e {
-				return nil, errors.New("Expecting number of arguments")
+				return items, errors.New("Expecting number of arguments")
 			}
 			extra = i
 			varargsvec = MakeVec()
-			objs = append(objs, varargsvec)
+			items.args[i] = varargsvec
 		} else if i > variables-1 && varargs {
 			*varargsvec = append(*varargsvec, o)
 		} else {
-			objs = append(objs, o)
+			items.args[i] = o
 		}
 	}
-	return &ItemManager{make([]Object, localsnum), objs}, nil
+	return items, nil
 }
 
-func (proc *ItemManager) GetLocal(idx int) Object {
+func (proc *Environment) GetEnvironment(idx int) Object {
+	return proc.args[idx]
+}
+
+func (proc *Environment) SetEnvironment(idx int, value Object) {
+	proc.args[idx] = value
+}
+
+type Locals struct {
+	locals [8]Object
+}
+
+func (proc *Locals) GetLocal(idx int) Object {
 	return proc.locals[idx]
 }
 
-func (proc *ItemManager) SetLocal(idx int, value Object) {
+func (proc *Locals) SetLocal(idx int, value Object) {
 	proc.locals[idx] = value
-}
-
-func (proc *ItemManager) GetEnvironment(idx int) Object {
-	return proc.environment[idx]
-}
-
-func (proc *ItemManager) SetEnvironment(idx int, value Object) {
-	proc.environment[idx] = value
 }

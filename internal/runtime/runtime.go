@@ -3,7 +3,7 @@ package runtime
 type EmbeddedFunction struct {
 	Name     string
 	ArgCount int
-	Function func(args ...Object) Object
+	Function func(args []Object) Object
 	Returns  bool
 }
 type Object interface{}
@@ -17,11 +17,17 @@ func MakeVec(items ...Object) VecT {
 
 type Instruction struct {
 	Code     ICode
-	Operands []Object
+	operands [2]Object
+	sz       int
 }
 
 func MKInstruction(code ICode, operands ...Object) Instruction {
-	return Instruction{Code: code, Operands: operands}
+	if len(operands) > 2 {
+		panic("Instructions can only have up to 2 arguments")
+	}
+	var opr [2]Object
+	copy(opr[:], operands)
+	return Instruction{code, opr, len(operands)}
 }
 
 type Fragment []Instruction
@@ -40,31 +46,39 @@ func (s *Symbol) Append(i Instruction) {
 }
 
 type CallStackElement struct {
-	pc       int               //pc
-	fragment Symbol            //fragment
-	father   *CallStackElement //The element under it
-	items    *ItemManager
+	pc     int         //pc
+	symbol *Symbol     //fragment
+	env    Environment //environment, args...
+	locals Locals      //local variables
 }
 
 type CallStack struct {
-	element *CallStackElement
+	elements []CallStackElement
+	idx      int
 }
 
-func NewCallStack() *CallStack {
-	return &CallStack{nil}
+func NewCallStack(size int) *CallStack {
+	return &CallStack{make([]CallStackElement, size), 0}
 }
 
-func (stack *CallStack) Insert(pc int, fragment Symbol, items *ItemManager) {
-	stack.element = &CallStackElement{pc, fragment, stack.element, items}
+func (stack *CallStack) Insert(pc int, symbol *Symbol, env Environment, locals Locals) {
+	if stack.idx >= len(stack.elements) {
+		panic("Unexpected situation, call stack overflow")
+	}
+	stack.elements[stack.idx] = CallStackElement{pc, symbol, env, locals}
+	stack.idx++
 }
 
 func (stack *CallStack) Pop() {
-	if stack.element == nil {
+	if stack.idx == 0 {
 		panic("Poping from empty call stack")
 	}
-	stack.element = stack.element.father
+	stack.idx--
 }
 
 func (stack *CallStack) Current() *CallStackElement {
-	return stack.element
+	if stack.idx == 0 {
+		return nil
+	}
+	return &stack.elements[stack.idx-1]
 }
