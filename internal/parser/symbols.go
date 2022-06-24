@@ -71,8 +71,9 @@ func injectBuiltinFunctions(to *FunctionCollection) {
 		}
 		return nil
 	})
-	to.AddSymbol("double", &FunctionSymbol{"none", false, MKInstruction(ITD).Fragment(), CloneType(Dec), []OBJType{Int}})
+	to.AddSymbol("dec", &FunctionSymbol{"none", false, MKInstruction(ITD).Fragment(), CloneType(Dec), []OBJType{Int}})
 	to.AddSymbol("int", &FunctionSymbol{"none", false, MKInstruction(DTI).Fragment(), CloneType(Int), []OBJType{Dec}})
+	to.AddSymbol("int", &FunctionSymbol{"none", false, []Instruction{}, CloneType(Int), []OBJType{Bool}})
 	to.AddSymbols("str", multiTypeInstruction(1, Str, map[OBJType]ICode{Str: NOP, Int: IRE, Dec: DRE}))
 	to.AddSymbols("len", multiTypeInstruction(1, Int, map[OBJType]ICode{Str: SOS, MapOf(Any): SOM, VecOf(Any): SOV}))
 	to.AddDynamicSymbol("vec", func(o []OBJType) *FunctionSymbol {
@@ -106,7 +107,7 @@ func injectBuiltinOperators(to *FunctionCollection) {
 	to.AddSymbols("&&", wrapOpInstruction(AND, Bool, false))
 	to.AddSymbols("||", wrapOpInstruction(OR, Bool, false))
 	to.AddSymbols("^^", wrapOpInstruction(XOR, Bool, false))
-	to.AddSymbols("==", multiTypeInstruction(2, Bool, map[OBJType]ICode{Str: EQS, Int: EQI, Dec: EQD}))
+	to.AddSymbols("==", multiTypeInstruction(2, Bool, map[OBJType]ICode{Str: EQS, Int: EQI, Dec: EQD, Bool: EQI}))
 	to.AddSymbols("<", multiTypeInstruction(2, Bool, map[OBJType]ICode{Int: ILE, Dec: DLE}))
 	to.AddSymbols(">", multiTypeInstruction(2, Bool, map[OBJType]ICode{Int: IGR, Dec: DGR}))
 	to.AddSymbols("<=", multiTypeInstruction(2, Bool, map[OBJType]ICode{Int: ILQ, Dec: DLQ}))
