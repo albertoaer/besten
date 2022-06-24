@@ -209,8 +209,8 @@ func (p *Parser) parseDirect(block Block) error {
 	return nil
 }
 
-func (p *Parser) parseIf(block Block) error {
-	tks := discardOne(block.Tokens)
+func (p *Parser) parseIf(tks []Token, children []Block) error {
+	tks = discardOne(tks)
 	tks, r := readUntilToken(tks, DO)
 	tp, e := p.parseExpression(tks, nil, false)
 	if e != nil {
@@ -229,13 +229,62 @@ func (p *Parser) parseIf(block Block) error {
 	editpoint := p.addInstruction(MKInstruction(MVF))
 	begin := p.fragmentSize()
 	p.openScope()
-	e = p.parseBlocks(block.Children, Function)
+	e = p.parseBlocks(children, Function)
 	if e != nil {
 		return e
 	}
 	p.closeScope()
 	end := p.fragmentSize()
 	p.editInstruction(editpoint, MKInstruction(MVF, end-begin))
+	p.currentScope().blockflags.submitIf(editpoint, end-begin)
+	return nil
+}
+
+func (p *Parser) parseElse(block Block) error {
+	if !p.currentScope().blockflags.afterif {
+		return errors.New("Unexpected block else")
+	}
+	{
+		//Add an offset of one to the previous if condition
+		p.editInstruction(p.currentScope().blockflags.lastifhead.idx,
+			MKInstruction(MVF, p.currentScope().blockflags.lastifhead.offset+1))
+		//Add an offset of one to the last skip
+		l := len(p.currentScope().blockflags.allifskips)
+		if l > 0 {
+			p.currentScope().blockflags.allifskips[l-1].offset += 1
+		}
+	}
+	tks := discardOne(block.Tokens)
+	prevjump := p.addInstruction(MKInstruction(NOP))
+	p.currentScope().blockflags.submitIfSkip(prevjump)
+	begin := p.fragmentSize()
+	if next(tks, IF) {
+		e := p.parseIf(tks, block.Children)
+		if e != nil {
+			return e
+		}
+	} else {
+		tail, e := expect(tks, DO)
+		if e != nil {
+			return e
+		}
+		if e := unexpect(tail); e != nil {
+			return e
+		}
+		p.openScope()
+		e = p.parseBlocks(block.Children, Function)
+		if e != nil {
+			return e
+		}
+		p.closeScope()
+	}
+	end := p.fragmentSize()
+	offset := end - begin
+	for i := range p.currentScope().blockflags.allifskips {
+		p.currentScope().blockflags.allifskips[i].offset += offset
+		p.editInstruction(p.currentScope().blockflags.allifskips[i].idx,
+			MKInstruction(MVR, p.currentScope().blockflags.allifskips[i].offset))
+	}
 	return nil
 }
 
@@ -271,10 +320,6 @@ func (p *Parser) parseWhile(block Block) error {
 	return nil
 }
 
-func (p *Parser) parseElse(block Block) error {
-	return nil
-}
-
 func (p *Parser) parseByKeyword(name string, block Block, scp ScopeCtx) error {
 	if scp == Global {
 		switch name {
@@ -291,7 +336,7 @@ func (p *Parser) parseByKeyword(name string, block Block, scp ScopeCtx) error {
 		case "direct":
 			return p.parseDirect(block)
 		case "if":
-			return p.parseIf(block)
+			return p.parseIf(block.Tokens, block.Children)
 		case "while":
 			return p.parseWhile(block)
 		case "else":
@@ -334,20 +379,27 @@ func (p *Parser) parseById(block Block, scp ScopeCtx) error {
 }
 
 func (p *Parser) parseBlock(block Block, scp ScopeCtx) error {
+	flags := p.currentScope().blockflags
+	flags.altered = false
+	var err error
 	if len(block.Tokens) == 0 {
 		panic("Void block")
 	}
 	if nextT(block.Tokens, KeywordToken) {
-		return p.parseByKeyword(block.Tokens[0].Data, block, scp)
-	}
-	if scp == Function {
-		ret, e := p.parseExpression(block.Tokens, block.Children, false)
+		err = p.parseByKeyword(block.Tokens[0].Data, block, scp)
+	} else if scp == Function {
+		var ret OBJType
+		ret, err = p.parseExpression(block.Tokens, block.Children, false)
 		if ret != Void {
 			p.addInstruction(MKInstruction(POP))
 		}
-		return e
+	} else {
+		err = errors.New(fmt.Sprintf("Unexpected token %s", block.Tokens[0].Data))
 	}
-	return errors.New(fmt.Sprintf("Unexpected token %s", block.Tokens[0].Data))
+	if !flags.altered {
+		flags.Reset()
+	}
+	return err
 }
 
 func (p *Parser) parseBlocks(blocks []Block, scp ScopeCtx) error {

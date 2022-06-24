@@ -81,10 +81,41 @@ type Variable struct {
 	Code    uint
 }
 
+type BlockFlags struct {
+	altered    bool
+	afterif    bool
+	lastifhead struct{ idx, offset int }
+	allifskips []struct{ idx, offset int }
+}
+
+func CreateFlags() *BlockFlags {
+	return &BlockFlags{false, false, struct{ idx, offset int }{-1, -1}, make([]struct{ idx, offset int }, 0)}
+}
+
+func (bf *BlockFlags) Edit(nbf BlockFlags) {
+	*bf = nbf
+	bf.altered = true
+}
+
+func (bf *BlockFlags) submitIf(head, skip int) {
+	bf.afterif = true
+	bf.lastifhead = struct{ idx, offset int }{head, skip}
+	bf.altered = true
+}
+
+func (bf *BlockFlags) submitIfSkip(idx int) {
+	bf.allifskips = append(bf.allifskips, struct{ idx, offset int }{idx, 0})
+}
+
+func (bf *BlockFlags) Reset() {
+	*bf = *CreateFlags()
+}
+
 type Scope struct {
 	Variables  map[string]*Variable
 	Functions  *FunctionCollection
 	Operators  *FunctionCollection
+	blockflags *BlockFlags
 	ReturnType *OBJType
 	Returned   *bool
 	parent     *Scope
@@ -150,6 +181,7 @@ func NewScope() *Scope {
 	return &Scope{Variables: make(map[string]*Variable),
 		Functions:  NewFunctionCollection(),
 		Operators:  NewFunctionCollection(),
+		blockflags: CreateFlags(),
 		ReturnType: &rptr, Returned: &r, parent: nil, varcount: &vc, argcount: &ac}
 }
 
@@ -168,6 +200,7 @@ func (s *Scope) Open(fnscope bool) *Scope {
 	ns := &Scope{Variables: make(map[string]*Variable),
 		Functions:  s.Functions.Fork(),
 		Operators:  s.Operators.Fork(),
+		blockflags: CreateFlags(),
 		ReturnType: returnt, Returned: returned, parent: s, varcount: vc, argcount: ac}
 	for k, v := range s.Variables {
 		ns.Variables[k] = v
