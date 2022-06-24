@@ -57,6 +57,14 @@ func injectBuiltinFunctions(to *FunctionCollection) {
 		},
 		Returns: true,
 	}).Fragment(), CloneType(Int), []OBJType{}})
+	to.AddSymbol("raw", &FunctionSymbol{"none", false, MKInstruction(IFD, EmbeddedFunction{
+		Name:     "raw",
+		ArgCount: 1,
+		Function: func(args []Object) Object {
+			return fmt.Sprintf("%v", args[0])
+		},
+		Returns: true,
+	}).Fragment(), CloneType(Str), []OBJType{Any}})
 	to.AddSymbol("double", &FunctionSymbol{"none", false, MKInstruction(ITD).Fragment(), CloneType(Dec), []OBJType{Int}})
 	to.AddSymbol("int", &FunctionSymbol{"none", false, MKInstruction(DTI).Fragment(), CloneType(Int), []OBJType{Dec}})
 	to.AddSymbols("str", multiTypeInstruction(1, Str, map[OBJType]ICode{Str: NOP, Int: IRE, Dec: DRE}))
