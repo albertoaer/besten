@@ -624,7 +624,8 @@ func (p *Parser) parseDropFn(block Block) error {
 				return e
 			}
 		} else if nextT(tks, IdToken) {
-			_, tpv, e := p.currentScope().GetVariableIns(tks[0].Data)
+			varname := tks[0].Data
+			_, tpv, e := p.currentScope().GetVariableIns(varname)
 			if e != nil {
 				return e
 			}
@@ -652,17 +653,23 @@ func (p *Parser) parseDropFn(block Block) error {
 				}
 				tps[i] = tp
 			}
-			drop = false
+			if len(tps) == 0 {
+				return errors.New("Expecting at least one type to match")
+			}
+			var matched OBJType
 			for _, tp := range tps {
-				if match == CompareTypes(tp, tpv) {
-					verb := "does not match"
-					if match {
-						verb = "matchs"
-					}
-					msg = fmt.Sprintf("%s %s %s", Repr(tpv), verb, Repr(tp))
-					drop = true
-					break
+				if CompareTypes(tp, tpv) {
+					matched = tp
 				}
+			}
+			if match == (matched != nil) {
+				if matched != nil {
+					msg = fmt.Sprintf("%s of type %s matchs %s", varname, Repr(tpv), Repr(matched))
+				} else {
+					msg = fmt.Sprintf("%s of type %s does not match", varname, Repr(tpv))
+				}
+			} else {
+				drop = false
 			}
 		}
 	}
