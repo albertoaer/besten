@@ -92,14 +92,14 @@ func (collection *FunctionCollection) AddTemplate(name string, template Function
 	}
 	if template.Varargs {
 		if v.variadic != nil {
-			return errors.New(fmt.Sprintf("Symbol %s :: Already a variadic template defined", name))
+			return fmt.Errorf("Symbol %s :: Already a variadic template defined", name)
 		}
 		tmp := template
 		v.variadic = &tmp
 	} else {
 		if _, e := v.fixedargs[len(template.Args)]; e {
-			return errors.New(fmt.Sprintf("Symbol %s :: Already defined a template with %d arguments",
-				name, len(template.Args)))
+			return fmt.Errorf("Symbol %s :: Already defined a template with %d arguments",
+				name, len(template.Args))
 		} else {
 			v.fixedargs[len(template.Args)] = template
 		}

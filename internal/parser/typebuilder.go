@@ -70,7 +70,7 @@ func genericSolveType(parts [][]Token, parser *Parser, allowany bool) (OBJType, 
 			}
 			return *obj, nil
 		}
-		return nil, errors.New(fmt.Sprintf("Type not available: %s", base[0].Data))
+		return nil, fmt.Errorf("Type not available: %s", base[0].Data)
 	}
 }
 

@@ -45,7 +45,7 @@ func NewVM() *VM {
 func (vm *VM) spawn(parent PID, fr string, stack *FunctionStack) (PID, error) {
 	sym, ex := vm.symbols[fr]
 	if !ex {
-		return nil, errors.New(fmt.Sprintf("Symbol %s not found", fr))
+		return nil, fmt.Errorf("Symbol %s not found", fr)
 	}
 	callstack := NewCallStack(20000)
 	env, locals := callstack.GetAvailableItems()
@@ -189,8 +189,8 @@ func (proc *Process) run() {
 	defer func() {
 		if e := recover(); e != nil {
 			if len(proc.rescues) == 0 {
-				proc.done <- errors.New(fmt.Sprintf("[fr : %s, pc : %d, icode : %d] Runtime error: %v",
-					proc.symbol.Name, proc.pc-1, proc.symbol.Source[proc.pc-1].Code, e))
+				proc.done <- fmt.Errorf("[fr : %s, pc : %d, icode : %d] Runtime error: %v",
+					proc.symbol.Name, proc.pc-1, proc.symbol.Source[proc.pc-1].Code, e)
 				proc.symbol = nil
 			} else {
 				rescue := proc.rescues[len(proc.rescues)-1]

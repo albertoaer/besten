@@ -70,10 +70,10 @@ func getRoute(tk []Token) ([]string, error) {
 	res := make([]string, 0)
 	for i := 0; i < len(tk); i += 2 {
 		if tk[i].Kind != IdToken {
-			return nil, errors.New(fmt.Sprintf("Unexpected token: %s", tk[i].Data))
+			return nil, fmt.Errorf("Unexpected token: %s", tk[i].Data)
 		}
 		if i+1 < len(tk) && tk[i+1] != DOT {
-			return nil, errors.New(fmt.Sprintf("Unexpected token: %s", tk[i+1].Data))
+			return nil, fmt.Errorf("Unexpected token: %s", tk[i+1].Data)
 		}
 		res = append(res, tk[i].Data)
 	}
@@ -117,7 +117,7 @@ func (s *syntaxConstantAccess) runIntoStack(p *Parser, stack *[]Instruction) (OB
 	*stack = append(*stack, tempstack...)
 	elems := r.FixedItems()
 	if s.idx < 0 || len(elems) <= s.idx {
-		return nil, errors.New(fmt.Sprintf("Invalid index %d for %s", s.idx, Repr(r)))
+		return nil, fmt.Errorf("Invalid index %d for %s", s.idx, Repr(r))
 	}
 	*stack = append(*stack, MKInstruction(ACC, nil, s.idx))
 	return elems[s.idx], nil
@@ -143,10 +143,10 @@ func (s *syntaxConstantAccess) runIntoStackSet(p *Parser, stack *[]Instruction, 
 	*stack = append(*stack, tempstackval...)
 	elems := r.FixedItems()
 	if s.idx < 0 || len(elems) <= s.idx {
-		return errors.New(fmt.Sprintf("Invalid index %d for %s", s.idx, Repr(r)))
+		return fmt.Errorf("Invalid index %d for %s", s.idx, Repr(r))
 	}
 	if !CompareTypes(elems[s.idx], r2) {
-		return errors.New(fmt.Sprintf("Invalid type %s at position %d for %s", Repr(r2), s.idx, Repr(r)))
+		return fmt.Errorf("Invalid type %s at position %d for %s", Repr(r2), s.idx, Repr(r))
 	}
 	*stack = append(*stack, MKInstruction(SVI, nil, s.idx))
 	return nil
@@ -184,7 +184,7 @@ func (s *syntaxRoute) runIntoStack(p *Parser, stack *[]Instruction) (OBJType, er
 			tp = tp.FixedItems()[idx]
 			*stack = append(*stack, MKInstruction(ACC, nil, idx))
 		} else {
-			return Void, errors.New(fmt.Sprintf("Type %s does not have property %s", tp.TypeName(), r))
+			return Void, fmt.Errorf("Type %s does not have property %s", tp.TypeName(), r)
 		}
 	}
 	return tp, err
@@ -229,7 +229,7 @@ func (s *syntaxRoute) runIntoStackSet(p *Parser, stack *[]Instruction, branch sy
 					*stack = append(*stack, MKInstruction(ACC, nil, idx))
 				}
 			} else {
-				return errors.New(fmt.Sprintf("Type %s does not have property %s", tp.TypeName(), r))
+				return fmt.Errorf("Type %s does not have property %s", tp.TypeName(), r)
 			}
 		}
 	}
@@ -252,7 +252,7 @@ func (s *syntaxCast) runIntoStack(p *Parser, stack *[]Instruction) (OBJType, err
 	}
 	var err error = nil
 	if !checkCompatibility(o, *n) {
-		err = errors.New(fmt.Sprintf("%s is not compatible with %s", Repr(o), Repr(*n)))
+		err = fmt.Errorf("%s is not compatible with %s", Repr(o), Repr(*n))
 	}
 	return *n, err
 }

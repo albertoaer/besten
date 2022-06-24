@@ -38,7 +38,7 @@ func (p *Parser) solveFunctionCall(name string, operator bool, callers []OBJType
 
 func (p *Parser) getSymbolForCall(name string, operator bool, callers []OBJType) (sym *FunctionSymbol, err error) {
 	if operator && (len(callers) > 2 || len(callers) < 1) {
-		err = errors.New(fmt.Sprintf("Operators cannot have %d arguments", len(callers)))
+		err = fmt.Errorf("Operators cannot have %d arguments", len(callers))
 		return
 	}
 	s, ex := p.findFunction(name, operator, callers)
@@ -119,7 +119,7 @@ func (p *Parser) generateFunctionFromTemplate(name string, operator bool, caller
 		if operator {
 			symboltype = "operator"
 		}
-		err = errors.New(fmt.Sprintf("There is no %s template %s/%d valid for %s", symboltype, name, len(callers), FnCArrRepr(callers)))
+		err = fmt.Errorf("There is no %s template %s/%d valid for %s", symboltype, name, len(callers), FnCArrRepr(callers))
 		return
 	}
 	return p.generateFunctionFromRawTemplate(name, operator, callers, template)
@@ -192,7 +192,7 @@ func (p *Parser) functionFromVariable(name string) error {
 		return e
 	}
 	if fnt.Primitive() != FUNCTION {
-		return errors.New(fmt.Sprintf("Variable %s is not a function", name))
+		return fmt.Errorf("Variable %s is not a function", name)
 	}
 	fn := fnt.(*FunctionType)
 	if e = p.currentScope().Functions.AddSymbol(name, &FunctionSymbol{

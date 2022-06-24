@@ -405,7 +405,7 @@ func (p *Parser) parseFor(block Block) error {
 		return e
 	}
 	if !CompareTypes(itertp, nitertp) {
-		return errors.New(fmt.Sprintf("Type %s does not match %s", itertp.TypeName(), nitertp.TypeName()))
+		return fmt.Errorf("Type %s does not match %s", itertp.TypeName(), nitertp.TypeName())
 	}
 	p.addInstruction(setiter)
 	end := p.fragmentSize()
@@ -462,7 +462,7 @@ func (p *Parser) parseDrop(block Block) error {
 		fc = p.currentScope().Operators
 		fname, tks, err = expectT(tks, OperatorToken)
 	} else {
-		return errors.New(fmt.Sprintf("Unexpected keyword: %s", t.Data))
+		return fmt.Errorf("Unexpected keyword: %s", t.Data)
 	}
 	if err != nil {
 		return err
@@ -539,7 +539,7 @@ func (p *Parser) parseAlias(block Block) error {
 		srcfc = p.currentScope().Operators
 		srcname, tks, err = expectT(tks, OperatorToken)
 	} else {
-		return errors.New(fmt.Sprintf("Unexpected keyword: %s", t.Data))
+		return fmt.Errorf("Unexpected keyword: %s", t.Data)
 	}
 	if err != nil {
 		return err
@@ -576,7 +576,7 @@ func (p *Parser) parseAlias(block Block) error {
 		dstfc = p.currentScope().Operators
 		dstname, tks, err = expectT(tks, OperatorToken)
 	} else {
-		return errors.New(fmt.Sprintf("Unexpected keyword: %s", t2.Data))
+		return fmt.Errorf("Unexpected keyword: %s", t2.Data)
 	}
 	if err != nil {
 		return err
@@ -705,7 +705,7 @@ func (p *Parser) parseStruct(block Block) error {
 			}
 			for name, idx := range tp.NamedItems() {
 				if _, e := indexer[name]; e {
-					return errors.New(fmt.Sprintf("Field %s already exists", name))
+					return fmt.Errorf("Field %s already exists", name)
 				}
 				indexer[name] = count + idx
 			}
@@ -713,7 +713,7 @@ func (p *Parser) parseStruct(block Block) error {
 			count += len(tp.FixedItems())
 		} else {
 			if _, e := indexer[name]; e {
-				return errors.New(fmt.Sprintf("Field %s already exists", name))
+				return fmt.Errorf("Field %s already exists", name)
 			}
 			indexer[name] = count
 			tuple = append(tuple, tp)
@@ -854,7 +854,7 @@ func (p *Parser) parseByKeyword(name string, block Block, scp ScopeCtx) error {
 	case "omit":
 		return nil //The block is omitted
 	}
-	return errors.New(fmt.Sprintf("Unexpected keyword found: %s", name))
+	return fmt.Errorf("Unexpected keyword found: %s", name)
 }
 
 func (p *Parser) parseById(block Block, scp ScopeCtx) error {
@@ -901,7 +901,7 @@ func (p *Parser) parseBlock(block Block, scp ScopeCtx) error {
 			p.addInstruction(MKInstruction(POP))
 		}
 	} else {
-		err = errors.New(fmt.Sprintf("Unexpected %s found: %s", block.Tokens[0].Kind.Representation(), block.Tokens[0].Data))
+		err = fmt.Errorf("Unexpected %s found: %s", block.Tokens[0].Kind.Representation(), block.Tokens[0].Data)
 	}
 	if !ifFlags.altered {
 		ifFlags.Reset()
@@ -927,7 +927,7 @@ func (p *Parser) parseBlocks(blocks []Block, scp ScopeCtx) error {
 						file = relpath
 					}
 				}
-				return errors.New(fmt.Sprintf("[File: %s] [Error in line (%s)]\n\t%s", file, lineid, strerr))
+				return fmt.Errorf("[File: %s] [Error in line (%s)]\n\t%s", file, lineid, strerr)
 			}
 			return e
 		}

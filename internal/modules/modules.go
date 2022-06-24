@@ -86,7 +86,7 @@ func (m *Modules) LoadModule(requester int, path string) (parser.Module, error) 
 		m.modulemx.Unlock()
 	}
 	if !existsFile(abspath) {
-		return nil, errors.New(fmt.Sprintf("Module %s does not exists", path))
+		return nil, fmt.Errorf("Module %s does not exists", path)
 	}
 	var fdata fs.FileInfo
 	var err error

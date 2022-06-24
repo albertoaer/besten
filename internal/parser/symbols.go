@@ -362,7 +362,7 @@ func (s *Scope) updateReturn(ret OBJType) error {
 		*s.ReturnType = ret
 		*s.Returned = true
 	} else {
-		return errors.New(fmt.Sprintf("Expecting return of type: %s", (*s.ReturnType).TypeName()))
+		return fmt.Errorf("Expecting return of type: %s", (*s.ReturnType).TypeName())
 	}
 	return nil
 }
@@ -381,7 +381,7 @@ func (s *Scope) CreateVariable(name string, t OBJType, mutable bool, arg bool) {
 func (s *Scope) GetVariableIns(name string) (Instruction, OBJType, error) {
 	if v, e := s.Variables[name]; e {
 		if !v.Asigned {
-			return MKInstruction(NOP), nil, errors.New(fmt.Sprintf("A value has not been set for: %s", name))
+			return MKInstruction(NOP), nil, fmt.Errorf("A value has not been set for: %s", name)
 		}
 		var ins Instruction
 		if v.Arg {
@@ -392,13 +392,13 @@ func (s *Scope) GetVariableIns(name string) (Instruction, OBJType, error) {
 		v.Used = true
 		return ins, v.Type, nil
 	}
-	return MKInstruction(NOP), nil, errors.New(fmt.Sprintf("Undefined variable: %s", name))
+	return MKInstruction(NOP), nil, fmt.Errorf("Undefined variable: %s", name)
 }
 
 func (s *Scope) SetVariableIns(name string, t OBJType) (Instruction, error) {
 	if v, e := s.Variables[name]; e {
 		if v.Asigned && !v.Mutable {
-			return MKInstruction(NOP), errors.New(fmt.Sprintf("Trying to reassign a constant: %s", name))
+			return MKInstruction(NOP), fmt.Errorf("Trying to reassign a constant: %s", name)
 		}
 		if !CompareTypes(v.Type, t) {
 			return MKInstruction(NOP), errors.New("Invalid type")
@@ -416,12 +416,12 @@ func (s *Scope) SetVariableIns(name string, t OBJType) (Instruction, error) {
 		v.Asigned = true
 		return ins, nil
 	}
-	return MKInstruction(NOP), errors.New(fmt.Sprintf("Undefined variable: %s", name))
+	return MKInstruction(NOP), fmt.Errorf("Undefined variable: %s", name)
 }
 
 func (s *Scope) NewType(name string, t OBJType) error {
 	if _, e := s.DefinedTypes[name]; e {
-		return errors.New(fmt.Sprintf("Type %s already exists", name))
+		return fmt.Errorf("Type %s already exists", name)
 	}
 	s.DefinedTypes[name] = &t
 	return nil
@@ -431,7 +431,7 @@ func (s *Scope) FetchType(name string) (*OBJType, error) {
 	if k, e := s.DefinedTypes[name]; e {
 		return k, nil
 	}
-	return nil, errors.New(fmt.Sprintf("Type %s does not exists", name))
+	return nil, fmt.Errorf("Type %s does not exists", name)
 }
 
 func NewScope(name string) *Scope {
@@ -494,7 +494,7 @@ func (s *Scope) ImportFrom(other *Scope) error {
 	for k, v := range other.ImportedModules {
 		if c, ex := s.ImportedModules[k]; ex {
 			if !c.Is(v) {
-				return errors.New(fmt.Sprintf("Module %s refers to different module", k))
+				return fmt.Errorf("Module %s refers to different module", k)
 			}
 		} else {
 			s.ImportedModules[k] = v
@@ -502,13 +502,13 @@ func (s *Scope) ImportFrom(other *Scope) error {
 	}
 	for k, v := range other.Variables {
 		if _, ex := s.Variables[k]; ex {
-			return errors.New(fmt.Sprintf("Variable %s already defined", k))
+			return fmt.Errorf("Variable %s already defined", k)
 		}
 		s.Variables[k] = v
 	}
 	for k, v := range other.DefinedTypes {
 		if _, ex := s.DefinedTypes[k]; ex {
-			return errors.New(fmt.Sprintf("Type %s already defined", k))
+			return fmt.Errorf("Type %s already defined", k)
 		}
 		s.DefinedTypes[k] = v
 	}
@@ -525,7 +525,7 @@ func (s *Scope) CheckClose() error {
 			if !v.Mutable {
 				vart = "Constant"
 			}
-			return errors.New(fmt.Sprintf("%s not used: %s", vart, name))
+			return fmt.Errorf("%s not used: %s", vart, name)
 		}
 	}
 	return nil

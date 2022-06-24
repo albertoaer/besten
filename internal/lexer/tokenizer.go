@@ -91,7 +91,7 @@ func solveToken(mask TokenType, value string) (Token, error) {
 	} else if mask == NoneToken {
 		return Token{}, errors.New("Trying to solve none type")
 	}
-	return Token{}, errors.New(fmt.Sprintf("No matching type for: %s", value))
+	return Token{}, fmt.Errorf("No matching type for: %s", value)
 }
 
 const (
@@ -147,7 +147,7 @@ func updateMask(previous []rune, mask TokenType, char rune) (newmask TokenType, 
 			newmask = IdToken
 		}
 	} else {
-		err = errors.New(fmt.Sprintf("Unexpected character: %s", string(char)))
+		err = fmt.Errorf("Unexpected character: %s", string(char))
 	}
 	return
 }
@@ -177,7 +177,7 @@ func string_analysis(last rune, char rune) (bool, []rune, error) {
 		case 'f':
 			return false, []rune{'\f'}, nil
 		default:
-			return false, nil, errors.New(fmt.Sprintf("Unexpected scape character %c", char))
+			return false, nil, fmt.Errorf("Unexpected scape character %c", char)
 		}
 	}
 	if char == '"' {

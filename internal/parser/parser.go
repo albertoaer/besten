@@ -1,7 +1,6 @@
 package parser
 
 import (
-	"errors"
 	"fmt"
 
 	. "github.com/Besten/internal/lexer"
@@ -143,7 +142,7 @@ func (p *Parser) GetSymbolNameFor(name string, operator bool, callers []OBJType)
 		if operator {
 			symboltype = "operator"
 		}
-		return "", errors.New(fmt.Sprintf("There is no %s symbol %s/%d valid for %s", symboltype, name, len(callers), FnCArrRepr(callers)))
+		return "", fmt.Errorf("There is no %s symbol %s/%d valid for %s", symboltype, name, len(callers), FnCArrRepr(callers))
 	}
 	return sym.CName, nil
 }

@@ -54,7 +54,7 @@ func (p *Parser) parseArguments(tks []Token) (args []string, types []OBJType, us
 				varargs = true
 				n = discardOne(n)
 			} else {
-				err = errors.New(fmt.Sprintf("Unexpected token: %s", v[0].Data))
+				err = fmt.Errorf("Unexpected token: %s", v[0].Data)
 				return
 			}
 		}
@@ -65,7 +65,7 @@ func (p *Parser) parseArguments(tks []Token) (args []string, types []OBJType, us
 		}
 		for _, x := range args {
 			if x == nm.Data {
-				err = errors.New(fmt.Sprintf("Argument %s repeated", x))
+				err = fmt.Errorf("Argument %s repeated", x)
 			}
 		}
 		args = append(args, nm.Data)
@@ -78,7 +78,7 @@ func (p *Parser) parseArguments(tks []Token) (args []string, types []OBJType, us
 		}
 		if usetypes {
 			if len(n) == 0 {
-				err = errors.New(fmt.Sprintf("Expecting type for argument: %s", nm.Data))
+				err = fmt.Errorf("Expecting type for argument: %s", nm.Data)
 				return
 			}
 			tp, e := solveContextedTypeFromTokens(n, p, false)
@@ -89,7 +89,7 @@ func (p *Parser) parseArguments(tks []Token) (args []string, types []OBJType, us
 			types = append(types, tp)
 		} else {
 			if len(n) > 0 {
-				err = errors.New(fmt.Sprintf("Unexpected type for template argument: %s", nm.Data))
+				err = fmt.Errorf("Unexpected type for template argument: %s", nm.Data)
 				return
 			}
 		}

@@ -1,7 +1,6 @@
 package parser
 
 import (
-	"errors"
 	"fmt"
 
 	. "github.com/Besten/internal/lexer"
@@ -32,7 +31,7 @@ func nextV(tks []Token, v string) bool {
 
 func unexpect(tks []Token) error {
 	if len(tks) > 0 {
-		return errors.New(fmt.Sprintf("Unexpected token: %s of type %s", tks[0].Data, tks[0].Kind.Representation()))
+		return fmt.Errorf("Unexpected token: %s of type %s", tks[0].Data, tks[0].Kind.Representation())
 	} else {
 		return nil
 	}
@@ -40,24 +39,24 @@ func unexpect(tks []Token) error {
 
 func expect(tks []Token, t Token) ([]Token, error) {
 	if len(tks) == 0 || tks[0] != t {
-		return nil, errors.New(fmt.Sprintf("Expecting token: %s", t.Data))
+		return nil, fmt.Errorf("Expecting token: %s", t.Data)
 	}
 	return tks[1:], nil
 }
 
 func expectT(tks []Token, t TokenType) (Token, []Token, error) {
 	if len(tks) == 0 {
-		return Token{}, nil, errors.New(fmt.Sprintf("Expecting token type %s", t.Representation()))
+		return Token{}, nil, fmt.Errorf("Expecting token type %s", t.Representation())
 	}
 	if tks[0].Kind != t {
-		return Token{}, nil, errors.New(fmt.Sprintf("Expecting token type %s instead of %s", t.Representation(), tks[0].Kind.Representation()))
+		return Token{}, nil, fmt.Errorf("Expecting token type %s instead of %s", t.Representation(), tks[0].Kind.Representation())
 	}
 	return tks[0], tks[1:], nil
 }
 
 func expectV(tks []Token, v string) (Token, []Token, error) {
 	if len(tks) == 0 || tks[0].Data != v {
-		return Token{}, nil, errors.New(fmt.Sprintf("Expecting token: %s", v))
+		return Token{}, nil, fmt.Errorf("Expecting token: %s", v)
 	}
 	return tks[0], tks[1:], nil
 }
@@ -100,7 +99,7 @@ mainloop:
 			}
 			if key(tk) {
 				if (!allowvoid && len(current) == 0) || (!lastsplit && i == len(data)-1) {
-					return nil, errors.New(fmt.Sprintf("Unexpected token %s", tk.Data))
+					return nil, fmt.Errorf("Unexpected token %s", tk.Data)
 				}
 				res = append(res, current)
 				if includekey {
@@ -116,7 +115,7 @@ mainloop:
 		}
 	}
 	if opened_level > 0 {
-		return nil, errors.New(fmt.Sprintf("%s not closed", pairs[opened_idx].open.Data))
+		return nil, fmt.Errorf("%s not closed", pairs[opened_idx].open.Data)
 	}
 	if len(current) > 0 {
 		res = append(res, current)
@@ -181,7 +180,7 @@ func blockSubtract(data []Token, open, close Token, pairs []struct {
 		}
 	}
 	if opened_idx >= 0 {
-		err = errors.New(fmt.Sprintf("%s not closed", pairs[opened_idx].open.Data))
+		err = fmt.Errorf("%s not closed", pairs[opened_idx].open.Data)
 	}
 	return
 }
