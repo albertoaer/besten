@@ -94,6 +94,8 @@ func isTypeLiteral(name string, allowany bool, allowvoid bool) OBJType {
 		return Bool
 	case Str.TypeName():
 		return Str
+	case Atom.TypeName():
+		return Atom
 	case Any.TypeName():
 		if allowany {
 			return Any

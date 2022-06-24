@@ -80,6 +80,16 @@ func getRoute(tk []Token) ([]string, error) {
 	return res, nil
 }
 
+type syntaxAtom struct {
+	value string
+	owner *SyntaxTree
+}
+
+func (s *syntaxAtom) runIntoStack(p *Parser, stack *[]Instruction) (OBJType, error) {
+	*stack = append(*stack, MKInstruction(PSH, s.value))
+	return Atom, nil
+}
+
 type syntaxTupleDefinition struct {
 	elements []syntaxBranch
 	owner    *SyntaxTree
@@ -637,6 +647,13 @@ func (s *SyntaxTree) identifyExpressionBranch(tks []Token) (syntaxBranch, error)
 	}
 	if route, e := getRoute(tks); e == nil {
 		return &syntaxRoute{nil, route, s}, nil
+	}
+	if tks[0] == DOUBLES && len(tks) > 0 && tks[1].Kind == IdToken {
+		str := &syntaxAtom{tks[1].Data, s}
+		if len(tks) > 2 {
+			return s.identifySubrouting(str, tks[2:])
+		}
+		return str, nil
 	}
 	if isLiteral(tks[0]) {
 		literal := &syntaxLiteral{tks[0].Data, tks[0].Kind, s}

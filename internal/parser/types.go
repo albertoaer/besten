@@ -23,6 +23,7 @@ const (
 	VARIADIC PrimitiveType = 11
 	ALIAS    PrimitiveType = 12
 	FUNCTION PrimitiveType = 13
+	ATOM     PrimitiveType = 14
 )
 
 func FnCArrRepr(arr []OBJType) string {
@@ -145,6 +146,7 @@ var (
 	Dec  OBJType = &Literal{DECIMAL, "Dec", float64(0.0)}
 	Bool OBJType = &Literal{BOOL, "Bool", 0}
 	Str  OBJType = &Literal{STRING, "Str", ""}
+	Atom OBJType = &Literal{ATOM, "Atom", "default"}
 	Any  OBJType = &Literal{ANY, "Any", nil}
 )
 
