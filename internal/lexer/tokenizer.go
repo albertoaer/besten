@@ -50,7 +50,6 @@ type Token struct {
 
 var string_mark rune = '"'
 var decimal_mark rune = '.'
-var negative_mark rune = '-'
 var underscore_mark rune = '_'
 var specials []string = []string{",", ".", "(", ")", ":"}
 var keywords []string = []string{"require", "import", "struct", "return", "fn", "op", "do",
@@ -139,9 +138,6 @@ func updateMask(previous []rune, mask TokenType, char rune) (newmask TokenType, 
 		}
 	} else if digit(char) {
 		if mask == DecimalToken || mask == IntegerToken || mask == IdToken {
-			action = mergeTokens
-		} else if mask == OperatorToken && len(previous) == 1 && previous[0] == negative_mark {
-			newmask = IntegerToken
 			action = mergeTokens
 		} else {
 			action = pushToken
