@@ -10,6 +10,7 @@ var (
 	STRUCTK        = Token{Data: "struct", Kind: KeywordToken}
 	FN             = Token{Data: "fn", Kind: KeywordToken}
 	DO             = Token{Data: "do", Kind: KeywordToken}
+	IN             = Token{Data: "in", Kind: KeywordToken}
 	IF             = Token{Data: "if", Kind: KeywordToken}
 	FOR            = Token{Data: "for", Kind: KeywordToken}
 	WHILE          = Token{Data: "while", Kind: KeywordToken}

@@ -304,12 +304,14 @@ func (p *Parser) parseWhile(block Block) error {
 	if tp.Primitive() != BOOL {
 		return errors.New("Expecting boolean expression")
 	}
-	tail, e := expect(r, DO)
-	if e != nil {
-		return e
-	}
-	if e := unexpect(tail); e != nil {
-		return e
+	{
+		tail, e := expect(r, DO)
+		if e != nil {
+			return e
+		}
+		if e := unexpect(tail); e != nil {
+			return e
+		}
 	}
 	editpoint := p.addInstruction(MKInstruction(MVF))
 	begin := p.fragmentSize()
@@ -324,6 +326,97 @@ func (p *Parser) parseWhile(block Block) error {
 	end := p.fragmentSize()
 	p.addInstruction(MKInstruction(MVR, whilestart-end-1))
 	p.editInstruction(editpoint, MKInstruction(MVF, end-begin+1))
+	return nil
+}
+
+func (p *Parser) parseFor(block Block) error {
+	tks := discardOne(block.Tokens)
+	tks, r := readUntilToken(tks, DO)
+	sides, e := splitByToken(tks, func(t Token) bool { return t == IN }, []struct {
+		open  Token
+		close Token
+	}{{POPEN, PCLOSE}, {BOPEN, BCLOSE}}, false, false, false)
+	if e != nil {
+		return e
+	}
+	if len(sides) != 2 {
+		return errors.New("Expecting 'in' keyword")
+	}
+	/*
+		Steps:
+			- get iter(obj) method -> get the iterator from an object, done by the user
+			the for loops requires an iterator, in order to perform:
+			- get end(iter) method -> call each cycle, at the beginning
+			- get val(iter) method -> call each cycle, after checking is not the end
+			- get next(iter) method -> call each cycle, at the end
+	*/
+	itertp, e := p.parseExpression(sides[1], nil, false)
+	var name string
+	{
+		t, r, e := expectT(sides[0], IdToken)
+		if e != nil {
+			return e
+		}
+		if e = unexpect(r); e != nil {
+			return e
+		}
+		name = t.Data
+	}
+	if e != nil {
+		return e
+	}
+	checkend, boolean, e := p.solveFunctionCall("end", false, []OBJType{itertp})
+	if e != nil {
+		return e
+	}
+	nextcall, nitertp, e := p.solveFunctionCall("next", false, []OBJType{itertp})
+	if e != nil {
+		return e
+	}
+	if !CompareTypes(itertp, nitertp) {
+		return errors.New(fmt.Sprintf("Type %s does not match %s", itertp.TypeName(), nitertp.TypeName()))
+	}
+	if boolean.Primitive() != BOOL {
+		return errors.New("Expected Boolean from end")
+	}
+	p.openScope()
+	p.currentScope().CreateVariable(name, itertp, true, false)
+	setiter, e := p.currentScope().SetVariableIns(name, itertp)
+	if e != nil {
+		return e //Weird, variable has just been set
+	}
+	p.addInstruction(setiter)
+	{
+		tail, e := expect(r, DO)
+		if e != nil {
+			return e
+		}
+		if e := unexpect(tail); e != nil {
+			return e
+		}
+	}
+	getiter, _, e := p.currentScope().GetVariableIns(name)
+	if e != nil {
+		return e //Weird, variable has just been set
+	}
+	forstart := p.fragmentSize()
+	p.addInstruction(getiter)
+	p.addInstructions(checkend)
+	editpoint := p.addInstruction(MKInstruction(MVF))
+	begin := p.fragmentSize()
+	e = p.parseBlocks(block.Children, Function)
+	if e != nil {
+		return e
+	}
+	if e = p.closeScope(); e != nil {
+		return e
+	}
+	p.addInstruction(getiter)
+	p.addInstructions(nextcall)
+	p.addInstruction(setiter)
+	end := p.fragmentSize()
+	p.addInstruction(MKInstruction(MVR, forstart-end-1))
+	p.editInstruction(editpoint, MKInstruction(MVT, end-begin+1))
 	return nil
 }
 
@@ -348,6 +441,8 @@ func (p *Parser) parseByKeyword(name string, block Block, scp ScopeCtx) error {
 			return p.parseWhile(block)
 		case "else":
 			return p.parseElse(block)
+		case "for":
+			return p.parseFor(block)
 		}
 	}
 	switch name {
