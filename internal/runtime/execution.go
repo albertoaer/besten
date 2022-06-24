@@ -3,7 +3,6 @@ package runtime
 import (
 	"errors"
 	"fmt"
-	"strconv"
 )
 
 type PID *Process
@@ -247,22 +246,6 @@ func (proc *Process) run() {
 				fstack.Push(float64(fstack.a(ins).(int)))
 			case DTI:
 				fstack.Push(int(fstack.a(ins).(float64)))
-			case IRE:
-				fstack.Push(strconv.Itoa(fstack.a(ins).(int)))
-			case DRE:
-				fstack.Push(fmt.Sprintf("%g", fstack.a(ins).(float64)))
-			case IPA:
-				i, e := strconv.Atoi(fstack.a(ins).(string))
-				if e != nil {
-					panic(e)
-				}
-				fstack.Push(i)
-			case DPA:
-				f, e := strconv.ParseFloat(fstack.a(ins).(string), 64)
-				if e != nil {
-					panic(e)
-				}
-				fstack.Push(f)
 			//COMPARISON
 			case EQI:
 				fstack.Push(boolNum(fstack.a(ins).(int) == fstack.b(ins).(int)))
@@ -309,11 +292,6 @@ func (proc *Process) run() {
 				fstack.Push(fstack.a(ins).(int) | fstack.b(ins).(int))
 			case XORB:
 				fstack.Push(fstack.a(ins).(int) ^ fstack.b(ins).(int))
-			//STRINGS
-			case CCS:
-				fstack.Push(fstack.a(ins).(string) + fstack.b(ins).(string))
-			case CAI:
-				fstack.Push(int(fstack.a(ins).(string)[fstack.b(ins).(int)]))
 			}
 		case code < 128:
 			switch code {

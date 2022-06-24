@@ -21,10 +21,6 @@ const (
 
 	ITD = 20 //int to double
 	DTI = 21 //double to int
-	IRE = 22 //int representation (to string)
-	DRE = 23 //double representation (to string)
-	IPA = 24 //int parse (to int)
-	DPA = 25 //double parse (to double)
 
 	//COMPARISON
 
@@ -53,11 +49,6 @@ const (
 	ANDB = 55 //logic and boolean
 	ORB  = 56 //logic or boolean
 	XORB = 57 //logic xor boolean
-
-	//STRINGS
-
-	CCS = 60 //Concatenate strings
-	CAI = 61 //Char at index
 
 	//MEMORY
 

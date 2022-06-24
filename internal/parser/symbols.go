@@ -92,7 +92,18 @@ func injectBuiltinFunctions(to *FunctionCollection) {
 	to.AddSymbol("dec", &FunctionSymbol{"none", false, MKInstruction(ITD).Fragment(), CloneType(Dec), []OBJType{Int}})
 	to.AddSymbol("int", &FunctionSymbol{"none", false, MKInstruction(DTI).Fragment(), CloneType(Int), []OBJType{Dec}})
 	to.AddSymbol("int", &FunctionSymbol{"none", false, []Instruction{}, CloneType(Int), []OBJType{Bool}})
-	to.AddSymbols("str", multiTypeInstruction(1, Str, map[OBJType]ICode{Str: NOP, Int: IRE, Dec: DRE}))
+	to.AddSymbol("str", &FunctionSymbol{"none", false, MKInstruction(IFD, EmbeddedFunction{
+		Name:     "vec_to_str",
+		ArgCount: 1,
+		Function: func(args []Object) Object {
+			r := make([]rune, 0)
+			for _, v := range *args[0].(VecT) {
+				r = append(r, rune(v.(int)))
+			}
+			return string(r)
+		},
+		Returns: true,
+	}).Fragment(), CloneType(Str), []OBJType{VecOf(Int)}})
 	to.AddSymbols("len", multiTypeInstruction(1, Int, map[OBJType]ICode{Str: SOS, MapOf(Any): SOM, VecOf(Any): SOV}))
 	to.AddDynamicSymbol("vec", func(o []OBJType) *FunctionSymbol {
 		if len(o) > 0 {
@@ -165,7 +176,6 @@ func injectBuiltinFunctions(to *FunctionCollection) {
 
 func injectBuiltinOperators(to *FunctionCollection) {
 	to.AddSymbols("+", mathOpInstruction(ADD, ADDF))
-	to.AddSymbols("+", wrapOpInstruction(CCS, Str, false))
 	to.AddSymbols("-", mathOpInstruction(SUB, SUBF))
 	to.AddSymbol("-", &FunctionSymbol{"none", false, MKInstruction(SUB, 0).Fragment(), CloneType(Int), []OBJType{Int}})
 	to.AddSymbol("-", &FunctionSymbol{"none", false, MKInstruction(SUBF, 0).Fragment(), CloneType(Dec), []OBJType{Dec}})
@@ -196,9 +206,6 @@ func injectBuiltinOperators(to *FunctionCollection) {
 			} else if o[0].Primitive() == MAP && o[1].Primitive() == STRING {
 				ins = []Instruction{MKInstruction(PRP)}
 				ret = CloneType(TupleOf([]OBJType{o[0].Items(), Bool}))
-			} else if o[0].Primitive() == STRING && o[1].Primitive() == INTEGER {
-				ins = MKInstruction(CAI).Fragment()
-				ret = CloneType(Int)
 			} else {
 				return nil
 			}
@@ -244,6 +251,18 @@ func injectBuiltinOperators(to *FunctionCollection) {
 		}
 		return nil
 	})
+	to.AddSymbol("*", &FunctionSymbol{"none", false, MKInstruction(IFD, EmbeddedFunction{
+		Name:     "str_to_vec",
+		ArgCount: 1,
+		Function: func(args []Object) Object {
+			r := make([]Object, 0)
+			for _, v := range []rune(args[0].(string)) {
+				r = append(r, int(v))
+			}
+			return VecT(&r)
+		},
+		Returns: true,
+	}).Fragment(), CloneType(VecOf(Int)), []OBJType{Str}})
 }
 
 type Variable struct {
