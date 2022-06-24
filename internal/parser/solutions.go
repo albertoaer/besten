@@ -29,7 +29,7 @@ func (p *Parser) solveFunctionCall(name string, operator bool, callers []OBJType
 	ret = *sym.Return
 	for i := range insbuffers {
 		*into = append(*into, insbuffers[len(insbuffers)-i-1]...)
-		if len(insbuffers)-i == len(sym.Args) && sym.Varargs {
+		if len(insbuffers)-i == len(sym.Args) && sym.Varargs && callers[i].Primitive() != VARIADIC {
 			*into = append(*into, runtime.MKInstruction(runtime.CSE, len(insbuffers)-len(sym.Args)+1))
 		}
 	}
@@ -75,7 +75,14 @@ outer:
 		for e := 0; e < len(callers); e++ {
 			if vec[i].Varargs && e >= len(vec[i].Args)-1 {
 				last := vec[i].Args[len(vec[i].Args)-1]
-				if last.Primitive() != VECTOR || !CompareTypes(callers[e], last.Items()) {
+				if last.Primitive() != VECTOR {
+					continue outer
+				}
+				comparator := callers[e]
+				if len(callers) == len(vec[i].Args) && callers[e].Primitive() == VARIADIC {
+					comparator = callers[e].Items()
+				}
+				if !CompareTypes(comparator, last.Items()) {
 					continue outer
 				}
 			} else if !CompareTypes(callers[e], vec[i].Args[e]) {
@@ -137,13 +144,18 @@ func (p *Parser) generateFunctionFromRawTemplate(name string, operator bool, cal
 
 	for i := range template.Args {
 		if template.Varargs && i == len(template.Args)-1 {
-			for j := i + 1; j < len(callers); j++ {
-				if !CompareTypes(callers[j-1], callers[j]) {
-					err = errors.New("Variadic elements must all be the same type")
-					return
+			var v OBJType
+			if len(callers) > len(template.Args) || callers[i].Primitive() != VARIADIC {
+				for j := i + 1; j < len(callers); j++ {
+					if !CompareTypes(callers[j-1], callers[j]) {
+						err = errors.New("Variadic elements must all be the same type")
+						return
+					}
 				}
+				v = VecOf(callers[i])
+			} else {
+				v = VecOf(callers[i].Items())
 			}
-			v := VecOf(callers[i])
 			p.currentScope().CreateVariable(template.Args[i], v, true, true)
 			args = append(args, v)
 		} else {

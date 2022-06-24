@@ -5,17 +5,18 @@ import "github.com/Besten/internal/runtime"
 type PrimitiveType uint8
 
 const (
-	VOID    PrimitiveType = 0
-	ANY     PrimitiveType = 1
-	NULL    PrimitiveType = 2
-	INTEGER PrimitiveType = 3
-	DECIMAL PrimitiveType = 4
-	BOOL    PrimitiveType = 5
-	STRING  PrimitiveType = 6
-	VECTOR  PrimitiveType = 7
-	MAP     PrimitiveType = 8
-	TUPLE   PrimitiveType = 9
-	STRUCT  PrimitiveType = 10
+	VOID     PrimitiveType = 0
+	ANY      PrimitiveType = 1
+	NULL     PrimitiveType = 2
+	INTEGER  PrimitiveType = 3
+	DECIMAL  PrimitiveType = 4
+	BOOL     PrimitiveType = 5
+	STRING   PrimitiveType = 6
+	VECTOR   PrimitiveType = 7
+	MAP      PrimitiveType = 8
+	TUPLE    PrimitiveType = 9
+	STRUCT   PrimitiveType = 10
+	VARIADIC PrimitiveType = 11
 )
 
 func FnCArrRepr(arr []OBJType) string {
@@ -37,7 +38,7 @@ func ArrRepr(arr []OBJType, o, c rune) string {
 func Repr(a OBJType) string {
 	base := a.TypeName()
 	switch a.Primitive() {
-	case VECTOR, MAP:
+	case VECTOR, MAP, VARIADIC:
 		base += "|" + Repr(a.Items())
 	case TUPLE:
 		return ArrRepr(a.FixedItems(), '{', '}')
@@ -91,7 +92,7 @@ func CompareTypes(a, b OBJType) bool {
 		return false
 	}
 	switch a.Primitive() {
-	case VECTOR, MAP:
+	case VECTOR, MAP, VARIADIC:
 		return CompareTypes(a.Items(), b.Items())
 	case STRUCT:
 		return CompareMapyOfTypes(a.NamedItems(), b.NamedItems())
@@ -153,6 +154,10 @@ func VecOf(t OBJType) OBJType {
 
 func MapOf(t OBJType) OBJType {
 	return &Container{MAP, t, "Map", runtime.KVC}
+}
+
+func VariadicOf(t OBJType) OBJType {
+	return &Container{VARIADIC, t, "Variadic", runtime.VEC}
 }
 
 func (nc *Container) TypeName() string {

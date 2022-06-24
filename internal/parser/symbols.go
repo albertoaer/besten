@@ -85,7 +85,7 @@ func injectBuiltinFunctions(to *FunctionCollection) {
 	}).Fragment(), CloneType(Str), []OBJType{Any}})
 	to.AddDynamicSymbol("stref", func(o []OBJType) *FunctionSymbol {
 		if len(o) == 1 {
-			return &FunctionSymbol{"none", false, []Instruction{MKInstruction(PSH, Repr(o[0]))}, CloneType(Str), []OBJType{o[0].Items()}}
+			return &FunctionSymbol{"none", false, []Instruction{MKInstruction(POP), MKInstruction(PSH, Repr(o[0]))}, CloneType(Str), []OBJType{o[0].Items()}}
 		}
 		return nil
 	})
@@ -163,6 +163,18 @@ func injectBuiltinOperators(to *FunctionCollection) {
 				return nil
 			}
 			return &FunctionSymbol{"none", false, ins, CloneType(Void), o}
+		}
+		return nil
+	})
+	to.AddDynamicSymbol("'", func(o []OBJType) *FunctionSymbol {
+		if len(o) == 1 {
+			if o[0].Primitive() == VECTOR {
+				v := VariadicOf(o[0].Items())
+				return &FunctionSymbol{"none", false, []Instruction{}, &v, o}
+			} else if o[0].Primitive() == VARIADIC {
+				v := VecOf(o[0].Items())
+				return &FunctionSymbol{"none", false, []Instruction{}, &v, o}
+			}
 		}
 		return nil
 	})
