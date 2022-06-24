@@ -303,12 +303,20 @@ func (proc *Process) run() {
 				fstack.Push(x)
 				fstack.Push(y)
 			//CONTROL
-			case CLL:
+			case CLL, CLX:
 				proc.callstack.Insert(proc.pc, proc.symbol)
 				proc.env, proc.locals = proc.callstack.GetAvailableItems()
-				proc.JumpToFragment(fstack.a(ins).(string))
-			case JMP:
-				proc.JumpToFragment(fstack.a(ins).(string))
+				name := fstack.a(ins).(string)
+				if code == CLX {
+					fstack.PushN(*fstack.b(ins).(VecT))
+				}
+				proc.JumpToFragment(name)
+			case JMP, JMX:
+				name := fstack.a(ins).(string)
+				if code == CLX {
+					fstack.PushN(*fstack.b(ins).(VecT))
+				}
+				proc.JumpToFragment(name)
 			case RET:
 				proc.ReturnLastPoint()
 			case MVR:

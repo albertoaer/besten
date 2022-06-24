@@ -77,8 +77,10 @@ const (
 	//CONTROl
 
 	CLL = 120 //Jumps into symbol address and saves actual address
-	JMP = 121 //Jumps into symbol address
-	RET = 122 //Return to last address in the stack
+	CLX = 121 //Call auxiliar, same as CLL but expands a vector
+	JMP = 122 //Jumps into symbol address
+	JMX = 123 //Jump auxiliar, same as JMP but expands a vector
+	RET = 124 //Return to last address in the stack
 	MVR = 125 //Moves pc relative to position
 	MVT = 126 //Moves pc relative to position if true
 	MVF = 127 //Moves pc relative to position if false
