@@ -804,9 +804,11 @@ func splitFirstLevelFunctionCall(tks []Token) (name []Token, args []Token, spawn
 		}
 		name = tks[:split]
 		args = tks[split+1:]
-		spawned = args[len(args)-1] == SPAWN
-		if spawned {
-			args = args[:len(args)-1]
+		if len(args) > 0 {
+			spawned = args[len(args)-1] == SPAWN
+			if spawned {
+				args = args[:len(args)-1]
+			}
 		}
 	}
 	return
