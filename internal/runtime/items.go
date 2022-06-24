@@ -43,6 +43,20 @@ func (fs *FunctionStack) Clone() *FunctionStack {
 	return fn
 }
 
+func (fs *FunctionStack) a(x Instruction) Object {
+	if x.sz < 1 {
+		return fs.Pop()
+	}
+	return x.operands[0]
+}
+
+func (fs *FunctionStack) b(x Instruction) Object {
+	if x.sz < 2 {
+		return fs.Pop()
+	}
+	return x.operands[1]
+}
+
 type Environment struct {
 	args [8]Object
 }

@@ -189,20 +189,6 @@ func (proc *Process) GetWorkingObject() Object {
 	return proc.workingObject
 }
 
-func (proc *Process) a(x Instruction) Object {
-	if x.sz < 1 {
-		return proc.functionstack.Pop()
-	}
-	return x.operands[0]
-}
-
-func (proc *Process) b(x Instruction) Object {
-	if x.sz < 2 {
-		return proc.functionstack.Pop()
-	}
-	return x.operands[1]
-}
-
 func boolNum(b bool) int {
 	if b {
 		return 1
@@ -223,6 +209,7 @@ func (proc *Process) run() {
 			proc.done <- nil
 		}
 	}()
+	fstack := proc.functionstack
 	for proc.pc < len(proc.symbol.Source) {
 		ins := proc.symbol.Source[proc.pc]
 		proc.pc++
@@ -233,132 +220,132 @@ func (proc *Process) run() {
 			case NOP:
 			//ARITHMETIC
 			case ADD:
-				proc.functionstack.Push(proc.a(ins).(int) + proc.b(ins).(int))
+				fstack.Push(fstack.a(ins).(int) + fstack.b(ins).(int))
 			case SUB:
-				proc.functionstack.Push(proc.a(ins).(int) - proc.b(ins).(int))
+				fstack.Push(fstack.a(ins).(int) - fstack.b(ins).(int))
 			case MUL:
-				proc.functionstack.Push(proc.a(ins).(int) * proc.b(ins).(int))
+				fstack.Push(fstack.a(ins).(int) * fstack.b(ins).(int))
 			case DIV:
-				proc.functionstack.Push(proc.a(ins).(int) / proc.b(ins).(int))
+				fstack.Push(fstack.a(ins).(int) / fstack.b(ins).(int))
 			case MOD:
-				proc.functionstack.Push(proc.a(ins).(int) % proc.b(ins).(int))
+				fstack.Push(fstack.a(ins).(int) % fstack.b(ins).(int))
 			case ADDF:
-				proc.functionstack.Push(proc.a(ins).(float64) + proc.b(ins).(float64))
+				fstack.Push(fstack.a(ins).(float64) + fstack.b(ins).(float64))
 			case SUBF:
-				proc.functionstack.Push(proc.a(ins).(float64) - proc.b(ins).(float64))
+				fstack.Push(fstack.a(ins).(float64) - fstack.b(ins).(float64))
 			case MULF:
-				proc.functionstack.Push(proc.a(ins).(float64) * proc.b(ins).(float64))
+				fstack.Push(fstack.a(ins).(float64) * fstack.b(ins).(float64))
 			case DIVF:
-				proc.functionstack.Push(proc.a(ins).(float64) / proc.b(ins).(float64))
+				fstack.Push(fstack.a(ins).(float64) / fstack.b(ins).(float64))
 			//CONVERSION
 			case ITD:
-				proc.functionstack.Push(float64(proc.a(ins).(int)))
+				fstack.Push(float64(fstack.a(ins).(int)))
 			case DTI:
-				proc.functionstack.Push(int(proc.a(ins).(float64)))
+				fstack.Push(int(fstack.a(ins).(float64)))
 			case IRE:
-				proc.functionstack.Push(strconv.Itoa(proc.a(ins).(int)))
+				fstack.Push(strconv.Itoa(fstack.a(ins).(int)))
 			case DRE:
-				proc.functionstack.Push(fmt.Sprintf("%g", proc.a(ins).(float64)))
+				fstack.Push(fmt.Sprintf("%g", fstack.a(ins).(float64)))
 			case IPA:
-				i, e := strconv.Atoi(proc.a(ins).(string))
+				i, e := strconv.Atoi(fstack.a(ins).(string))
 				if e != nil {
 					panic(e)
 				}
-				proc.functionstack.Push(i)
+				fstack.Push(i)
 			case DPA:
-				f, e := strconv.ParseFloat(proc.a(ins).(string), 64)
+				f, e := strconv.ParseFloat(fstack.a(ins).(string), 64)
 				if e != nil {
 					panic(e)
 				}
-				proc.functionstack.Push(f)
+				fstack.Push(f)
 			//COMPARISON
 			case EQI:
-				proc.functionstack.Push(boolNum(proc.a(ins).(int) == proc.b(ins).(int)))
+				fstack.Push(boolNum(fstack.a(ins).(int) == fstack.b(ins).(int)))
 			case EQD:
-				proc.functionstack.Push(boolNum(proc.a(ins).(float64) == proc.b(ins).(float64)))
+				fstack.Push(boolNum(fstack.a(ins).(float64) == fstack.b(ins).(float64)))
 			case EQS:
-				proc.functionstack.Push(boolNum(proc.a(ins).(string) == proc.b(ins).(string)))
+				fstack.Push(boolNum(fstack.a(ins).(string) == fstack.b(ins).(string)))
 			case ILE:
-				proc.functionstack.Push(boolNum(proc.a(ins).(int) < proc.b(ins).(int)))
+				fstack.Push(boolNum(fstack.a(ins).(int) < fstack.b(ins).(int)))
 			case DLE:
-				proc.functionstack.Push(boolNum(proc.a(ins).(float64) < proc.b(ins).(float64)))
+				fstack.Push(boolNum(fstack.a(ins).(float64) < fstack.b(ins).(float64)))
 			case IGR:
-				proc.functionstack.Push(boolNum(proc.a(ins).(int) > proc.b(ins).(int)))
+				fstack.Push(boolNum(fstack.a(ins).(int) > fstack.b(ins).(int)))
 			case DGR:
-				proc.functionstack.Push(boolNum(proc.a(ins).(float64) > proc.b(ins).(float64)))
+				fstack.Push(boolNum(fstack.a(ins).(float64) > fstack.b(ins).(float64)))
 			case ILQ:
-				proc.functionstack.Push(boolNum(proc.a(ins).(int) <= proc.b(ins).(int)))
+				fstack.Push(boolNum(fstack.a(ins).(int) <= fstack.b(ins).(int)))
 			case DLQ:
-				proc.functionstack.Push(boolNum(proc.a(ins).(float64) <= proc.b(ins).(float64)))
+				fstack.Push(boolNum(fstack.a(ins).(float64) <= fstack.b(ins).(float64)))
 			case IGQ:
-				proc.functionstack.Push(boolNum(proc.a(ins).(int) >= proc.b(ins).(int)))
+				fstack.Push(boolNum(fstack.a(ins).(int) >= fstack.b(ins).(int)))
 			case DGQ:
-				proc.functionstack.Push(boolNum(proc.a(ins).(float64) >= proc.b(ins).(float64)))
+				fstack.Push(boolNum(fstack.a(ins).(float64) >= fstack.b(ins).(float64)))
 			//LOGIC
 			case NOT:
-				proc.functionstack.Push(^proc.a(ins).(int))
+				fstack.Push(^fstack.a(ins).(int))
 			case AND:
-				proc.functionstack.Push(proc.a(ins).(int) & proc.b(ins).(int))
+				fstack.Push(fstack.a(ins).(int) & fstack.b(ins).(int))
 			case OR:
-				proc.functionstack.Push(proc.a(ins).(int) | proc.b(ins).(int))
+				fstack.Push(fstack.a(ins).(int) | fstack.b(ins).(int))
 			case XOR:
-				proc.functionstack.Push(proc.a(ins).(int) ^ proc.b(ins).(int))
+				fstack.Push(fstack.a(ins).(int) ^ fstack.b(ins).(int))
 			//STRINGS
 			case CCS:
-				proc.functionstack.Push(proc.a(ins).(string) + proc.b(ins).(string))
+				fstack.Push(fstack.a(ins).(string) + fstack.b(ins).(string))
 			case CAI:
-				proc.functionstack.Push(int(proc.a(ins).(string)[proc.b(ins).(int)]))
+				fstack.Push(int(fstack.a(ins).(string)[fstack.b(ins).(int)]))
 			}
 		case code < 128:
 			switch code {
 			//MEMORY
 			case LEI:
-				proc.functionstack.Push(proc.env.GetEnvironment(proc.a(ins).(int)))
+				fstack.Push(proc.env.GetEnvironment(fstack.a(ins).(int)))
 			case SEI:
-				proc.env.SetEnvironment(proc.a(ins).(int), proc.b(ins))
+				proc.env.SetEnvironment(fstack.a(ins).(int), fstack.b(ins))
 			case LLI:
-				proc.functionstack.Push(proc.locals.GetLocal(proc.a(ins).(int)))
+				fstack.Push(proc.locals.GetLocal(fstack.a(ins).(int)))
 			case SLI:
-				proc.locals.SetLocal(proc.a(ins).(int), proc.b(ins))
+				proc.locals.SetLocal(fstack.a(ins).(int), fstack.b(ins))
 			//STACK
 			case PSH:
-				proc.functionstack.Push(proc.a(ins))
+				fstack.Push(fstack.a(ins))
 			case POP:
-				proc.functionstack.Pop()
+				fstack.Pop()
 			case CLR:
-				proc.functionstack.Clear()
+				fstack.Clear()
 			case DUP:
-				x := proc.a(ins)
-				proc.functionstack.Push(x)
-				proc.functionstack.Push(x)
+				x := fstack.a(ins)
+				fstack.Push(x)
+				fstack.Push(x)
 			case SWT:
-				x, y := proc.a(ins), proc.b(ins)
-				proc.functionstack.Push(x)
-				proc.functionstack.Push(y)
+				x, y := fstack.a(ins), fstack.b(ins)
+				fstack.Push(x)
+				fstack.Push(y)
 			//CONTROL
 			case CLL:
-				proc.CallFragment(proc.a(ins).(string))
+				proc.CallFragment(fstack.a(ins).(string))
 			case JMP:
-				proc.JumpToFragment(proc.a(ins).(string))
+				proc.JumpToFragment(fstack.a(ins).(string))
 			case RET:
 				proc.ReturnLastPoint()
 			case SKT:
-				if proc.a(ins).(int) != 0 {
+				if fstack.a(ins).(int) != 0 {
 					proc.pc++
 				}
 			case SKF:
-				if proc.a(ins).(int) == 0 {
+				if fstack.a(ins).(int) == 0 {
 					proc.pc++
 				}
 			case MVR:
-				proc.pc += proc.a(ins).(int)
+				proc.pc += fstack.a(ins).(int)
 			case MVT:
-				if proc.b(ins).(int) != 0 {
-					proc.pc += proc.a(ins).(int)
+				if fstack.b(ins).(int) != 0 {
+					proc.pc += fstack.a(ins).(int)
 				}
 			case MVF:
-				if proc.b(ins).(int) == 0 {
-					proc.pc += proc.a(ins).(int)
+				if fstack.b(ins).(int) == 0 {
+					proc.pc += fstack.a(ins).(int)
 				}
 			}
 		case code < 192:
@@ -367,63 +354,63 @@ func (proc *Process) run() {
 			case KVC:
 				proc.SetWorkingObject(make(MapT))
 			case PRP:
-				proc.functionstack.Push((proc.GetWorkingObject().(MapT))[proc.a(ins).(string)])
+				fstack.Push((proc.GetWorkingObject().(MapT))[fstack.a(ins).(string)])
 			case ATT:
-				(proc.GetWorkingObject().(MapT))[proc.a(ins).(string)] = proc.b(ins)
+				(proc.GetWorkingObject().(MapT))[fstack.a(ins).(string)] = fstack.b(ins)
 			case EXK:
-				_, exists := (proc.GetWorkingObject().(MapT))[proc.a(ins).(string)]
-				proc.functionstack.Push(boolNum(exists))
+				_, exists := (proc.GetWorkingObject().(MapT))[fstack.a(ins).(string)]
+				fstack.Push(boolNum(exists))
 			case VEC:
 				vec := make([]Object, 0)
 				var vecref VecT = &vec
 				proc.SetWorkingObject(vecref)
 			case ACC:
-				proc.functionstack.Push((*(proc.GetWorkingObject().(VecT)))[proc.a(ins).(int)])
+				fstack.Push((*(proc.GetWorkingObject().(VecT)))[fstack.a(ins).(int)])
 			case APP:
 				vec := proc.GetWorkingObject().(VecT)
-				*vec = append(*vec, proc.b(ins))
+				*vec = append(*vec, fstack.b(ins))
 			case SVI:
 				vec := *(proc.GetWorkingObject().(VecT))
-				vec[proc.a(ins).(int)] = proc.b(ins)
+				vec[fstack.a(ins).(int)] = fstack.b(ins)
 			case DMI:
 				m := proc.GetWorkingObject().(MapT)
-				delete(m, proc.a(ins).(string))
+				delete(m, fstack.a(ins).(string))
 			case CSE:
 				vec := make([]Object, 0)
 				var vecref VecT = &vec
-				sz := proc.a(ins).(int)
+				sz := fstack.a(ins).(int)
 				if sz < 0 {
 					panic("Trying to collapse negative number of elements")
 				}
 				for i := 0; i < sz; i++ {
-					res := proc.functionstack.Pop()
+					res := fstack.Pop()
 					*vecref = append(*vecref, res)
 				}
 				proc.SetWorkingObject(vecref)
 			case WTP:
-				proc.functionstack.Push(proc.GetWorkingObject())
+				fstack.Push(proc.GetWorkingObject())
 			case PTW:
-				proc.SetWorkingObject(proc.a(ins))
+				proc.SetWorkingObject(fstack.a(ins))
 			//SIZE
 			case SOS:
-				proc.functionstack.Push(len(proc.a(ins).(string)))
+				fstack.Push(len(fstack.a(ins).(string)))
 			case SOV:
-				proc.functionstack.Push(len(*proc.a(ins).(VecT)))
+				fstack.Push(len(*fstack.a(ins).(VecT)))
 			case SOM:
-				proc.functionstack.Push(len(proc.a(ins).(MapT)))
+				fstack.Push(len(fstack.a(ins).(MapT)))
 			}
 		default:
 			switch code {
 			//STATE
 			case SWR:
-				proc.state = proc.a(ins)
+				proc.state = fstack.a(ins)
 			case SRE:
-				proc.functionstack.Push(proc.state)
+				fstack.Push(proc.state)
 			//Interaction
 			case INV:
-				proc.Invoke(proc.a(ins).(string))
+				proc.Invoke(fstack.a(ins).(string))
 			case IFD:
-				proc.DirectInvoke(proc.a(ins).(EmbeddedFunction))
+				proc.DirectInvoke(fstack.a(ins).(EmbeddedFunction))
 			}
 		}
 	}
