@@ -2,6 +2,7 @@ package parser
 
 import (
 	"errors"
+	"fmt"
 
 	. "github.com/Besten/internal/lexer"
 )
@@ -47,7 +48,7 @@ func genericSolveType(parts [][]Token) (OBJType, error) {
 	case "map":
 		return solveTypeMap(parts[1:])
 	default:
-		return nil, errors.New("Type not found")
+		return nil, errors.New(fmt.Sprintf("Type not found: %s", base[0].Data))
 	}
 }
 
