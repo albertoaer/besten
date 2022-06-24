@@ -64,14 +64,13 @@ func main() {
 		}
 	}()
 	table := itable("./internal/runtime/instructionset.go")
-	var file string
 	var name string
-	flag.StringVar(&file, "file", "", "File to be compiled")
 	flag.StringVar(&name, "name", "", "Prefix to compare the symbol compilation name")
 	flag.Parse()
-	if len(file) == 0 {
-		panic("No file provided")
+	if flag.NArg() == 0 {
+		panic("Expecting file")
 	}
+	file := flag.Args()[0]
 	symbols, _, err := modules.New().File(file)
 	if err != nil {
 		panic(err)
