@@ -136,10 +136,18 @@ func (proc *Process) Clear() {
 
 func (proc *Process) ReturnLastPoint() {
 	point := proc.callstack.Current()
-	proc.callstack.Pop()
-	proc.context = point.context
-	proc.fragment = point.fragment
-	proc.pc = point.pc
+	if point == nil {
+		/*
+			Send to last instruction
+			Will force process to end
+		*/
+		proc.pc = len(proc.fragment.Source) + 1
+	} else {
+		proc.callstack.Pop()
+		proc.context = point.context
+		proc.fragment = point.fragment
+		proc.pc = point.pc
+	}
 }
 
 func (proc *Process) SavePoint() {
