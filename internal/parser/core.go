@@ -113,6 +113,7 @@ func (p *Parser) parseReturn(block Block) error {
 		if e != nil {
 			return e
 		}
+		//FIXME: if function returns void, and then returns non void should give and error
 		//Is valid returning void, in order to achive infinite recursion
 		if (*p.currentScope().ReturnType).Primitive() == VOID || CompareTypes(*p.currentScope().ReturnType, ret) {
 			*p.currentScope().ReturnType = ret

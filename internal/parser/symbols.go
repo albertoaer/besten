@@ -82,17 +82,19 @@ type Scope struct {
 }
 
 func NewScope() *Scope {
+	rptr := Void
 	return &Scope{Variables: make(map[string]*Variable),
 		Functions:  NewFunctionCollection(),
 		Operators:  NewFunctionCollection(),
-		ReturnType: &Void, parent: nil}
+		ReturnType: &rptr, parent: nil}
 }
 
 func (s *Scope) Open() *Scope {
+	rptr := Void
 	ns := &Scope{Variables: make(map[string]*Variable),
 		Functions:  s.Functions.Fork(),
 		Operators:  s.Operators.Fork(),
-		ReturnType: &Void, parent: s}
+		ReturnType: &rptr, parent: s}
 	for k, v := range s.Variables {
 		ns.Variables[k] = v
 	}
