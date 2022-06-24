@@ -180,9 +180,9 @@ func (s *syntaxRoute) runIntoStack(p *Parser, stack *[]Instruction) (OBJType, er
 		route = s.route[1:]
 	}
 	for _, r := range route {
-		if t, e := tp.NamedItems()[r]; e {
-			tp = t
-			*stack = append(*stack, MKInstruction(PRP, r))
+		if idx, e := tp.NamedItems()[r]; e {
+			tp = tp.FixedItems()[idx]
+			*stack = append(*stack, MKInstruction(ACC, nil, idx))
 		} else {
 			return Void, errors.New(fmt.Sprintf("Type %s does not have property %s", tp.TypeName(), r))
 		}
@@ -221,12 +221,12 @@ func (s *syntaxRoute) runIntoStackSet(p *Parser, stack *[]Instruction, branch sy
 		*stack = append(*stack, ins)
 		route = s.route[1:]
 		for i, r := range route {
-			if t, e := tp.NamedItems()[r]; e {
+			if idx, e := tp.NamedItems()[r]; e {
 				if i == len(route)-1 {
-					*stack = append(*stack, MKInstruction(ATT, r))
+					*stack = append(*stack, MKInstruction(SWT), MKInstruction(SVI, nil, idx))
 				} else {
-					tp = t
-					*stack = append(*stack, MKInstruction(PRP, r))
+					tp = tp.FixedItems()[idx]
+					*stack = append(*stack, MKInstruction(ACC, nil, idx))
 				}
 			} else {
 				return errors.New(fmt.Sprintf("Type %s does not have property %s", tp.TypeName(), r))
@@ -234,6 +234,27 @@ func (s *syntaxRoute) runIntoStackSet(p *Parser, stack *[]Instruction, branch sy
 		}
 	}
 	return err
+}
+
+type syntaxCast struct {
+	origin syntaxBranch
+	into   string
+}
+
+func (s *syntaxCast) runIntoStack(p *Parser, stack *[]Instruction) (OBJType, error) {
+	o, e := s.origin.runIntoStack(p, stack)
+	if e != nil {
+		return nil, e
+	}
+	n, e := p.currentScope().FetchType(s.into)
+	if e != nil {
+		return nil, e
+	}
+	var err error = nil
+	if !checkCompatibility(o, *n) {
+		err = errors.New(fmt.Sprintf("%s is not compatible with %s", Repr(o), Repr(*n)))
+	}
+	return *n, err
 }
 
 type syntaxCall struct {
@@ -510,10 +531,11 @@ func (s *SyntaxTree) identifyExpressionBranch(tks []Token) (syntaxBranch, error)
 		return &syntaxRoute{nil, route, s}, nil
 	}
 	if isLiteral(tks[0]) {
+		literal := &syntaxLiteral{tks[0].Data, tks[0].Kind, s}
 		if len(tks) > 1 {
-			return nil, errors.New(fmt.Sprintf("Unexpected token: %s", tks[1].Data))
+			return s.identifySubrouting(literal, tks[1:])
 		}
-		return &syntaxLiteral{tks[0].Data, tks[0].Kind, s}, nil
+		return literal, nil
 	}
 	if tks[0] == CBOPEN {
 		_, inner, right, err := blockSubtract(tks, CBOPEN, CBCLOSE, genericPairs)
@@ -581,6 +603,17 @@ func (s *SyntaxTree) identifySubrouting(preceded syntaxBranch, nexttks []Token) 
 	var idx syntaxBranch = nil
 	var e error
 	if len(left) == len(nexttks) {
+		if !next(left, DOT) {
+			var id Token
+			if id, left, e = expectT(left, IdToken); e != nil {
+				return nil, e
+			}
+			if e = unexpect(left); e != nil {
+				return nil, e
+			}
+			return &syntaxCast{preceded, id.Data}, nil
+		}
+		left = discardOne(left)
 		route, e := getRoute(left)
 		if e != nil {
 			return nil, e
@@ -589,6 +622,9 @@ func (s *SyntaxTree) identifySubrouting(preceded syntaxBranch, nexttks []Token) 
 	} else {
 		branch := preceded
 		if len(left) != 0 {
+			if left, e = expect(left, DOT); e != nil {
+				return nil, e
+			}
 			route, e := getRoute(left)
 			if e != nil {
 				return nil, e

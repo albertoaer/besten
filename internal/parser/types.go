@@ -17,6 +17,7 @@ const (
 	TUPLE    PrimitiveType = 9
 	STRUCT   PrimitiveType = 10
 	VARIADIC PrimitiveType = 11
+	ALIAS    PrimitiveType = 12
 )
 
 func FnCArrRepr(arr []OBJType) string {
@@ -47,12 +48,12 @@ func Repr(a OBJType) string {
 }
 
 type OBJType interface {
-	TypeName() string               //For identifying type
-	Primitive() PrimitiveType       //For basic object kind identification
-	Items() OBJType                 //For containers with unique and unnamed types
-	FixedItems() []OBJType          //For tuple with fixed fields
-	NamedItems() map[string]OBJType //For structures with fixed fields
-	Create() []runtime.Instruction
+	TypeName() string              //For identifying type
+	Primitive() PrimitiveType      //For basic object kind identification
+	Items() OBJType                //For containers with unique and unnamed types
+	FixedItems() []OBJType         //For tuple and structures with fixed fields
+	NamedItems() map[string]int    //For structures with fixed and indexed fields
+	Create() []runtime.Instruction //Instructions to create the object
 }
 
 func CloneType(o OBJType) *OBJType {
@@ -72,21 +73,12 @@ func CompareArrayOfTypes(a, b []OBJType) bool {
 	return true
 }
 
-func CompareMapyOfTypes(a, b map[string]OBJType) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for k, v1 := range a {
-		if v2, e := b[k]; !e || !CompareTypes(v1, v2) {
-			return false
-		}
-	}
-	return true
-}
-
 func CompareTypes(a, b OBJType) bool {
 	if a.Primitive() == ANY || b.Primitive() == ANY {
 		return true
+	}
+	if a.Primitive() == ALIAS || b.Primitive() == ALIAS {
+		return a.TypeName() == b.TypeName()
 	}
 	if a.Primitive() != b.Primitive() {
 		return false
@@ -94,12 +86,31 @@ func CompareTypes(a, b OBJType) bool {
 	switch a.Primitive() {
 	case VECTOR, MAP, VARIADIC:
 		return CompareTypes(a.Items(), b.Items())
-	case STRUCT:
-		return CompareMapyOfTypes(a.NamedItems(), b.NamedItems())
-	case TUPLE:
+	case STRUCT, TUPLE:
 		return CompareArrayOfTypes(a.FixedItems(), b.FixedItems())
 	}
 	return true
+}
+
+func checkCompatibility(from, to OBJType) bool {
+	switch to.Primitive() {
+	case ALIAS:
+		a := to.(*Alias).Holds
+		b := from
+		if b.Primitive() == ALIAS {
+			b = b.(*Alias).Holds
+		}
+		return CompareTypes(a, b)
+	case STRUCT:
+		a := to.(*Structure).ItemTypes
+		if from.Primitive() == TUPLE {
+			return CompareTypes(TupleOf(a), from)
+		}
+		if from.Primitive() == STRUCT {
+			return CompareTypes(TupleOf(a), TupleOf(from.(*Structure).ItemTypes))
+		}
+	}
+	return false
 }
 
 type Literal struct {
@@ -133,7 +144,7 @@ func (nc *Literal) FixedItems() []OBJType {
 	return nil
 }
 
-func (nc *Literal) NamedItems() map[string]OBJType {
+func (nc *Literal) NamedItems() map[string]int {
 	return nil
 }
 
@@ -176,7 +187,7 @@ func (nc *Container) FixedItems() []OBJType {
 	return nil
 }
 
-func (nc *Container) NamedItems() map[string]OBJType {
+func (nc *Container) NamedItems() map[string]int {
 	return nil
 }
 
@@ -208,25 +219,62 @@ func (nc *Tuple) FixedItems() []OBJType {
 	return nc.ItemTypes
 }
 
-func (nc *Tuple) NamedItems() map[string]OBJType {
+func (nc *Tuple) NamedItems() map[string]int {
 	return nil
 }
 
 func (nc *Tuple) Create() []runtime.Instruction {
 	data := make([]runtime.Instruction, 0)
 	for _, v := range nc.ItemTypes {
-		data = append(data, v.Create()...)
+		data = append(v.Create(), data...)
 	}
 	return append(data, runtime.MKInstruction(runtime.CSE, len(nc.ItemTypes)))
 }
 
-/*type Structure struct {
-	ItemsType map[string]OBJType
+type Alias struct {
+	Holds OBJType
+	Name  string
+}
+
+func AliasFor(name string, obj OBJType) OBJType {
+	if obj.Primitive() == ALIAS {
+		obj = obj.(*Alias).Holds
+	}
+	return &Alias{obj, name}
+}
+
+func (nc *Alias) TypeName() string {
+	return nc.Name
+}
+
+func (nc *Alias) Primitive() PrimitiveType {
+	return ALIAS
+}
+
+func (nc *Alias) Items() OBJType {
+	return nc.Holds.Items()
+}
+
+func (nc *Alias) FixedItems() []OBJType {
+	return nc.Holds.FixedItems()
+}
+
+func (nc *Alias) NamedItems() map[string]int {
+	return nc.Holds.NamedItems()
+}
+
+func (nc *Alias) Create() []runtime.Instruction {
+	return nc.Holds.Create()
+}
+
+type Structure struct {
+	ItemTypes []OBJType
+	Fields    map[string]int
 	Name      string
 }
 
-func StructOf(fields map[string]OBJType, name string) OBJType {
-	return &Structure{fields, name}
+func StructOf(items []OBJType, fields map[string]int, name string) OBJType {
+	return &Structure{items, fields, name}
 }
 
 func (nc *Structure) TypeName() string {
@@ -242,9 +290,17 @@ func (nc *Structure) Items() OBJType {
 }
 
 func (nc *Structure) FixedItems() []OBJType {
-	return nil
+	return nc.ItemTypes
 }
 
-func (nc *Structure) NamedItems() map[string]OBJType {
-	return nc.ItemsType
-}*/
+func (nc *Structure) NamedItems() map[string]int {
+	return nc.Fields
+}
+
+func (nc *Structure) Create() []runtime.Instruction {
+	data := make([]runtime.Instruction, 0)
+	for _, v := range nc.ItemTypes {
+		data = append(data, v.Create()...)
+	}
+	return append(data, runtime.MKInstruction(runtime.CSE, len(nc.ItemTypes)))
+}

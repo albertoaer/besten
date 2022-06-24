@@ -63,6 +63,16 @@ func genericSolveType(parts [][]Token, parser *Parser, allowany bool) (OBJType, 
 	case "Map":
 		return solveTypeMap(parts[1:], parser, allowany)
 	default:
+		if parser != nil {
+			obj, e := parser.currentScope().FetchType(base[0].Data)
+			if len(parts) > 1 {
+				return nil, errors.New("Unexpected child type")
+			}
+			if e != nil {
+				return nil, e //Return error first in order to avoid pointer dereference
+			}
+			return *obj, nil
+		}
 		return nil, errors.New(fmt.Sprintf("Type not available: %s", base[0].Data))
 	}
 }

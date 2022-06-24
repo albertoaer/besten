@@ -191,6 +191,18 @@ func injectBuiltinOperators(to *FunctionCollection) {
 		}
 		return nil
 	})
+	to.AddDynamicSymbol("*", func(o []OBJType) *FunctionSymbol {
+		if len(o) == 1 {
+			if o[0].Primitive() == ALIAS {
+				r := o[0].(*Alias).Holds
+				return &FunctionSymbol{"none", false, []Instruction{}, &r, o}
+			} else if o[0].Primitive() == STRUCT {
+				t := TupleOf(o[0].FixedItems())
+				return &FunctionSymbol{"none", false, []Instruction{}, &t, o}
+			}
+		}
+		return nil
+	})
 }
 
 type Variable struct {
@@ -273,6 +285,7 @@ func (bf *returnLnFlag) Reset() {
 
 type Scope struct {
 	Variables    map[string]*Variable
+	DefinedTypes map[string]*OBJType
 	Functions    *FunctionCollection
 	Operators    *FunctionCollection
 	ifFlags      *ifFlags
@@ -351,11 +364,28 @@ func (s *Scope) SetVariableIns(name string, t OBJType) (Instruction, error) {
 	return MKInstruction(NOP), errors.New(fmt.Sprintf("Undefined variable: %s", name))
 }
 
+func (s *Scope) NewType(name string, t OBJType) error {
+	if _, e := s.DefinedTypes[name]; e {
+		return errors.New(fmt.Sprintf("Type %s already exists", name))
+	}
+	s.DefinedTypes[name] = &t
+	return nil
+}
+
+func (s *Scope) FetchType(name string) (*OBJType, error) {
+	if k, e := s.DefinedTypes[name]; e {
+		return k, nil
+	}
+	return nil, errors.New(fmt.Sprintf("Type %s does not exists", name))
+}
+
 func NewScope() *Scope {
 	rptr := Void
 	r := false
 	var vc, ac uint = 0, 0
-	return &Scope{Variables: make(map[string]*Variable),
+	return &Scope{
+		Variables:    make(map[string]*Variable),
+		DefinedTypes: make(map[string]*OBJType),
 		Functions:    NewFunctionCollection(),
 		Operators:    NewFunctionCollection(),
 		ifFlags:      createIfFlags(),
@@ -376,7 +406,9 @@ func (s *Scope) Open(fnscope bool) *Scope {
 		var vcv, acv uint = 0, 0
 		vc, ac = &vcv, &acv
 	}
-	ns := &Scope{Variables: make(map[string]*Variable),
+	ns := &Scope{
+		Variables:    make(map[string]*Variable),
+		DefinedTypes: make(map[string]*OBJType),
 		Functions:    s.Functions.Fork(),
 		Operators:    s.Operators.Fork(),
 		ifFlags:      createIfFlags(),
@@ -385,6 +417,9 @@ func (s *Scope) Open(fnscope bool) *Scope {
 		ReturnType:   returnt, Returned: returned, parent: s, varcount: vc, argcount: ac}
 	for k, v := range s.Variables {
 		ns.Variables[k] = v
+	}
+	for k, v := range s.DefinedTypes {
+		ns.DefinedTypes[k] = v
 	}
 	return ns
 }

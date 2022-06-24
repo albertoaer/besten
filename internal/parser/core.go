@@ -10,7 +10,7 @@ import (
 	. "github.com/Besten/internal/runtime"
 )
 
-func parseArguments(tks []Token) (args []string, types []OBJType, usetypes bool, varargs bool, err error) {
+func (p *Parser) parseArguments(tks []Token) (args []string, types []OBJType, usetypes bool, varargs bool, err error) {
 	tks = discardOne(tks)
 	preargs, r := readUntilToken(tks, DO)
 	if err != nil {
@@ -27,10 +27,7 @@ func parseArguments(tks []Token) (args []string, types []OBJType, usetypes bool,
 			return
 		}
 	}
-	argtk, err := splitByToken(preargs, func(tk Token) bool { return tk == COMA }, []struct {
-		open  Token
-		close Token
-	}{{CBOPEN, CBCLOSE}}, false, false, false)
+	argtk, err := splitByToken(preargs, func(tk Token) bool { return tk == COMA }, genericPairs, false, false, false)
 	for i, v := range argtk {
 		n := v
 		if next(n, QUOTE) {
@@ -63,7 +60,7 @@ func parseArguments(tks []Token) (args []string, types []OBJType, usetypes bool,
 				err = errors.New(fmt.Sprintf("Expecting type for argument: %s", nm.Data))
 				return
 			}
-			tp, e := solveTypeFromTokens(n, false)
+			tp, e := solveContextedTypeFromTokens(n, p, false)
 			if e != nil {
 				err = e
 				return
@@ -112,7 +109,7 @@ func (p *Parser) parseFunction(block Block, operator bool) error {
 	var usetypes bool
 	varargs := false
 	if next(tks, DOUBLES) {
-		args, types, usetypes, varargs, e = parseArguments(tks)
+		args, types, usetypes, varargs, e = p.parseArguments(tks)
 		if e != nil {
 			return e
 		}
@@ -542,8 +539,38 @@ func (p *Parser) parseDrop(block Block) error {
 	return unexpect(tks)
 }
 
+func (p *Parser) parseAliasFor(tks []Token) error {
+	var aliasname Token
+	var err error
+	if aliasname, tks, err = expectT(tks, IdToken); err != nil {
+		return err
+	}
+	if tks, err = expect(tks, FOR); err != nil {
+		return err
+	}
+	if err = p.currentScope().NewType(aliasname.Data, AliasFor(aliasname.Data, Void)); err != nil {
+		return err
+	}
+	var obj OBJType
+	if obj, err = solveContextedTypeFromTokens(tks, p, true); err != nil {
+		return err
+	}
+	var ptr *OBJType
+	if ptr, err = p.currentScope().FetchType(aliasname.Data); err != nil {
+		return err
+	}
+	if *ptr == obj {
+		return errors.New("Circular type dependency")
+	}
+	(*ptr).(*Alias).Holds = obj
+	return nil
+}
+
 func (p *Parser) parseAlias(block Block) error {
 	tks := discardOne(block.Tokens)
+	if nextT(tks, IdToken) {
+		return p.parseAliasFor(tks)
+	}
 	t, tks, err := expectT(tks, KeywordToken)
 	if err != nil {
 		return err
@@ -687,6 +714,38 @@ func (p *Parser) parseDropFn(block Block) error {
 	return errors.New(msg)
 }
 
+func (p *Parser) parseStruct(block Block) error {
+	tks := discardOne(block.Tokens)
+	name, tks, err := expectT(tks, IdToken)
+	if err != nil {
+		return err
+	}
+	tks, err = expect(tks, DOUBLES)
+	if err != nil {
+		return err
+	}
+	tps, err := splitByToken(tks, func(tk Token) bool { return tk == COMA }, genericPairs, false, false, false)
+	indexer := make(map[string]int)
+	tuple := make([]OBJType, 0)
+	for i, tk := range tps {
+		var t Token
+		if t, tk, err = expectT(tk, IdToken); err != nil {
+			return err
+		}
+		var tp OBJType
+		if tp, err = solveContextedTypeFromTokens(tk, p, true); err != nil {
+			return err
+		}
+		indexer[t.Data] = i
+		tuple = append(tuple, tp)
+	}
+	if len(tuple) == 0 {
+		return errors.New("Expecting at least one field")
+	}
+	structure := StructOf(tuple, indexer, name.Data)
+	return p.currentScope().NewType(name.Data, structure)
+}
+
 func (p *Parser) parseByKeyword(name string, block Block, scp ScopeCtx) error {
 	if scp == Global {
 		switch name {
@@ -700,6 +759,8 @@ func (p *Parser) parseByKeyword(name string, block Block, scp ScopeCtx) error {
 			return p.parseDrop(block)
 		case "alias":
 			return p.parseAlias(block)
+		case "struct":
+			return p.parseStruct(block)
 		}
 	}
 	if scp == Function || scp == Loop {
