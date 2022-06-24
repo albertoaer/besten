@@ -39,6 +39,7 @@ func NewParser(name string, envId int, env ImportEnv) *Parser {
 	}), make(map[string]*Symbol), make([]string, 0)}
 	injectBuiltinFunctions(p.rootscope.Functions)
 	injectBuiltinOperators(p.rootscope.Operators)
+	injectBuiltinTypes(p.rootscope.DefinedTypes)
 	return p
 }
 

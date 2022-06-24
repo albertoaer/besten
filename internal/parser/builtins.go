@@ -298,3 +298,9 @@ func injectBuiltinOperators(to *FunctionCollection) {
 		return nil
 	})
 }
+
+func injectBuiltinTypes(to map[string]*OBJType) {
+	for i := range defaultTypes {
+		to[defaultTypes[i].TypeName()] = &defaultTypes[i]
+	}
+}

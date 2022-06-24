@@ -6,6 +6,8 @@ import (
 	"github.com/Besten/internal/runtime"
 )
 
+var defaultTypes []OBJType = []OBJType{Void, Int, Dec, Bool, Str, Atom, Any}
+
 type PrimitiveType uint8
 
 const (

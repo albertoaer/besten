@@ -58,12 +58,6 @@ func genericSolveType(parts [][]Token, parser *Parser, allowany bool, allowvoid 
 	if err != nil {
 		return nil, err
 	}
-	if o := isTypeLiteral(name, allowany, allowvoid); o != nil {
-		if len(parts) > 1 {
-			return nil, errors.New("Literal must have no child type")
-		}
-		return o, nil
-	}
 	switch name {
 	case "Vec":
 		return solveTypeVec(parts[1:], parser, allowany)
@@ -78,34 +72,16 @@ func genericSolveType(parts [][]Token, parser *Parser, allowany bool, allowvoid 
 			if e != nil {
 				return nil, e //Return error first in order to avoid pointer dereference
 			}
+			if (*obj).Primitive() == VOID && !allowvoid {
+				return nil, errors.New("Type Void not allowed here")
+			}
+			if (*obj).Primitive() == ANY && !allowany {
+				return nil, errors.New("Type Any not allowed here")
+			}
 			return *obj, nil
 		}
 		return nil, fmt.Errorf("Type not available: %s", name)
 	}
-}
-
-func isTypeLiteral(name string, allowany bool, allowvoid bool) OBJType {
-	switch name {
-	case Int.TypeName():
-		return Int
-	case Dec.TypeName():
-		return Dec
-	case Bool.TypeName():
-		return Bool
-	case Str.TypeName():
-		return Str
-	case Atom.TypeName():
-		return Atom
-	case Any.TypeName():
-		if allowany {
-			return Any
-		}
-	case Void.TypeName():
-		if allowvoid {
-			return Void
-		}
-	}
-	return nil
 }
 
 func solveTypeMap(parts [][]Token, parser *Parser, allowany bool) (OBJType, error) {
