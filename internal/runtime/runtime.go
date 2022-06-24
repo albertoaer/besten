@@ -17,7 +17,7 @@ func MakeVec(items ...Object) VecT {
 
 type Instruction struct {
 	Code     ICode
-	operands [2]Object
+	operands *[2]Object
 	sz       uint8
 }
 
@@ -27,7 +27,7 @@ func MKInstruction(code ICode, operands ...Object) Instruction {
 	}
 	var opr [2]Object
 	copy(opr[:], operands)
-	return Instruction{code, opr, uint8(len(operands))}
+	return Instruction{code, &opr, uint8(len(operands))}
 }
 
 func (i Instruction) Fragment() []Instruction {
