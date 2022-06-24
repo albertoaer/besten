@@ -102,12 +102,9 @@ func (p *Parser) fragmentSize() int {
 	return len(p.symbols[p.activeFragment()].Source)
 }
 
-func (p *Parser) openFragmentFor(name string, args int, varargs bool) {
+func (p *Parser) openFragmentFor(name string, args int) {
 	if _, v := p.symbols[name]; !v {
-		p.symbols[name] = Symbol{Name: name, Source: make(Fragment, 0), BuiltInfo: struct {
-			Args    int
-			Varargs bool
-		}{args, varargs}}
+		p.symbols[name] = Symbol{Name: name, Source: make(Fragment, 0), Args: args}
 	}
 	if _, v := p.scopes[name]; !v {
 		scope := p.makeScope()

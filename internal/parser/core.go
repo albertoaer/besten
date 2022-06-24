@@ -486,15 +486,15 @@ func (p *Parser) parseByKeyword(name string, block Block, scp ScopeCtx) error {
 			return p.parseElse(block)
 		case "for":
 			return p.parseFor(block)
+		case "var", "val":
+			return p.parseDefinition(block, name == "val")
 		}
 	}
 	switch name {
 	case "fn", "op":
 		return p.parseFunction(block, name == "op")
-	case "var", "val":
-		return p.parseDefinition(block, name == "val")
 	}
-	return errors.New(fmt.Sprintf("Unexpected token found: %s", name))
+	return errors.New(fmt.Sprintf("Unexpected keyword found: %s", name))
 }
 
 func (p *Parser) parseById(block Block, scp ScopeCtx) error {
@@ -541,7 +541,7 @@ func (p *Parser) parseBlock(block Block, scp ScopeCtx) error {
 			p.addInstruction(MKInstruction(POP))
 		}
 	} else {
-		err = errors.New(fmt.Sprintf("Unexpected token %s", block.Tokens[0].Data))
+		err = errors.New(fmt.Sprintf("Unexpected %s found: %s", block.Tokens[0].Kind.Representation(), block.Tokens[0].Data))
 	}
 	if !ifFlags.altered {
 		ifFlags.Reset()
