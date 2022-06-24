@@ -316,18 +316,20 @@ func (bf *returnLnFlag) Reset() {
 }
 
 type Scope struct {
-	Variables    map[string]*Variable
-	DefinedTypes map[string]*OBJType
-	Functions    *FunctionCollection
-	Operators    *FunctionCollection
-	ifFlags      *ifFlags
-	loopInfo     *LoopInfo
-	returnLnFlag *returnLnFlag
-	ReturnType   *OBJType
-	Returned     *bool
-	parent       *Scope
-	varcount     *uint
-	argcount     *uint
+	DataModule      Module
+	ImportedModules map[string]Module
+	Variables       map[string]*Variable
+	DefinedTypes    map[string]*OBJType
+	Functions       *FunctionCollection
+	Operators       *FunctionCollection
+	ifFlags         *ifFlags
+	loopInfo        *LoopInfo
+	returnLnFlag    *returnLnFlag
+	ReturnType      *OBJType
+	Returned        *bool
+	parent          *Scope
+	varcount        *uint
+	argcount        *uint
 }
 
 func (s *Scope) forkLoopInfo() {
@@ -411,19 +413,23 @@ func (s *Scope) FetchType(name string) (*OBJType, error) {
 	return nil, errors.New(fmt.Sprintf("Type %s does not exists", name))
 }
 
-func NewScope() *Scope {
+func NewScope(name string) *Scope {
 	rptr := Void
 	r := false
 	var vc, ac uint = 0, 0
-	return &Scope{
-		Variables:    make(map[string]*Variable),
-		DefinedTypes: make(map[string]*OBJType),
-		Functions:    NewFunctionCollection(),
-		Operators:    NewFunctionCollection(),
-		ifFlags:      createIfFlags(),
-		loopInfo:     nil,
-		returnLnFlag: createReturnLnFlag(),
-		ReturnType:   &rptr, Returned: &r, parent: nil, varcount: &vc, argcount: &ac}
+	var scope *Scope
+	scope = &Scope{
+		ImportedModules: map[string]Module{"core": core},
+		Variables:       make(map[string]*Variable),
+		DefinedTypes:    make(map[string]*OBJType),
+		Functions:       NewFunctionCollection(),
+		Operators:       NewFunctionCollection(),
+		ifFlags:         createIfFlags(),
+		loopInfo:        nil,
+		returnLnFlag:    createReturnLnFlag(),
+		ReturnType:      &rptr, Returned: &r, parent: nil, varcount: &vc, argcount: &ac}
+	scope.DataModule = &FileModule{name, scope}
+	return scope
 }
 
 func (s *Scope) Open(fnscope bool) *Scope {
@@ -439,14 +445,19 @@ func (s *Scope) Open(fnscope bool) *Scope {
 		vc, ac = &vcv, &acv
 	}
 	ns := &Scope{
-		Variables:    make(map[string]*Variable),
-		DefinedTypes: make(map[string]*OBJType),
-		Functions:    s.Functions.Fork(),
-		Operators:    s.Operators.Fork(),
-		ifFlags:      createIfFlags(),
-		loopInfo:     s.loopInfo,
-		returnLnFlag: createReturnLnFlag(),
-		ReturnType:   returnt, Returned: returned, parent: s, varcount: vc, argcount: ac}
+		DataModule:      s.DataModule,
+		ImportedModules: make(map[string]Module),
+		Variables:       make(map[string]*Variable),
+		DefinedTypes:    make(map[string]*OBJType),
+		Functions:       s.Functions.Fork(),
+		Operators:       s.Operators.Fork(),
+		ifFlags:         createIfFlags(),
+		loopInfo:        s.loopInfo,
+		returnLnFlag:    createReturnLnFlag(),
+		ReturnType:      returnt, Returned: returned, parent: s, varcount: vc, argcount: ac}
+	for k, v := range s.ImportedModules {
+		ns.ImportedModules[k] = v
+	}
 	for k, v := range s.Variables {
 		ns.Variables[k] = v
 	}
@@ -454,6 +465,34 @@ func (s *Scope) Open(fnscope bool) *Scope {
 		ns.DefinedTypes[k] = v
 	}
 	return ns
+}
+
+func (s *Scope) ImportFrom(other *Scope) error {
+	for k, v := range other.ImportedModules {
+		if c, ex := s.ImportedModules[k]; ex {
+			if !c.Is(v) {
+				return errors.New(fmt.Sprintf("Module %s refers to different module", k))
+			}
+		} else {
+			s.ImportedModules[k] = v
+		}
+	}
+	for k, v := range other.Variables {
+		if _, ex := s.Variables[k]; ex {
+			return errors.New(fmt.Sprintf("Variable %s already defined", k))
+		}
+		s.Variables[k] = v
+	}
+	for k, v := range other.DefinedTypes {
+		if _, ex := s.DefinedTypes[k]; ex {
+			return errors.New(fmt.Sprintf("Type %s already defined", k))
+		}
+		s.DefinedTypes[k] = v
+	}
+	if e := s.Operators.CopyFrom(other.Operators); e != nil {
+		return e
+	}
+	return s.Functions.CopyFrom(other.Functions)
 }
 
 func (s *Scope) CheckClose() error {

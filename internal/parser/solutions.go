@@ -124,7 +124,7 @@ func (p *Parser) generateFunctionFromTemplate(name string, operator bool, caller
 }
 
 func (p *Parser) generateFunctionFromRawTemplate(name string, operator bool, callers []OBJType, template *FunctionTemplate) (sym *FunctionSymbol, err error) {
-	compilename := generateFnUUID(name, p.modulename, len(template.Args), template.Varargs, false)
+	compilename := generateFnUUID(name, p.rootscope.DataModule.Name(), len(template.Args), template.Varargs, false)
 
 	p.openFragmentFor(compilename, len(template.Args))
 
@@ -205,7 +205,7 @@ func (p *Parser) functionFromVariable(name string) error {
 func (p *Parser) getFunctionTypeFrom(name string, fn *FunctionSymbol) (OBJType, string) {
 	compilename := fn.CName
 	if len(fn.Call) != 1 || fn.Call[0].Code != runtime.CLL {
-		compilename = generateFnUUID(name, p.modulename, len(fn.Args), fn.Varargs, true)
+		compilename = generateFnUUID(name, p.rootscope.DataModule.Name(), len(fn.Args), fn.Varargs, true)
 		p.openFragmentFor(compilename, 0)
 		p.addInstructions(fn.Call)
 		p.addInstruction(runtime.MKInstruction(runtime.RET))

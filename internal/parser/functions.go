@@ -58,8 +58,10 @@ func (collection *FunctionCollection) Fork() *FunctionCollection {
 
 func (collection *FunctionCollection) CopyFrom(other *FunctionCollection) error {
 	for k, v := range other.templates {
-		if e := collection.AddTemplate(k, *v.variadic); e != nil { //Copy variadic template
-			return e
+		if v.variadic != nil {
+			if e := collection.AddTemplate(k, *v.variadic); e != nil { //Copy variadic template
+				return e
+			}
 		}
 		for _, t := range v.fixedargs { //Copy fixed length template
 			if e := collection.AddTemplate(k, t); e != nil {
@@ -67,7 +69,7 @@ func (collection *FunctionCollection) CopyFrom(other *FunctionCollection) error 
 			}
 		}
 	}
-	for k, v := range collection.functions {
+	for k, v := range other.functions {
 		for _, variadic := range v.variadic { //Copy one by one the variadic
 			if e := collection.AddSymbol(k, variadic); e != nil {
 				return e

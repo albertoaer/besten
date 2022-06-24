@@ -56,6 +56,7 @@ func Repr(a OBJType) string {
 }
 
 type OBJType interface {
+	Module() Module                         //For identifying module
 	TypeName() string                       //For identifying type
 	Primitive() PrimitiveType               //For basic object kind identification
 	Items() OBJType                         //For containers with unique and unnamed types
@@ -141,6 +142,10 @@ var (
 	Any  OBJType = &Literal{ANY, "Any", nil}
 )
 
+func (nc *Literal) Module() Module {
+	return core
+}
+
 func (nc *Literal) TypeName() string {
 	return nc.Name
 }
@@ -184,6 +189,10 @@ func VariadicOf(t OBJType) OBJType {
 	return &Container{VARIADIC, t, "Variadic", runtime.VEC}
 }
 
+func (nc *Container) Module() Module {
+	return core
+}
+
 func (nc *Container) TypeName() string {
 	return nc.Name
 }
@@ -214,6 +223,10 @@ type Tuple struct {
 
 func TupleOf(items []OBJType) OBJType {
 	return &Tuple{items}
+}
+
+func (nc *Tuple) Module() Module {
+	return core
 }
 
 func (nc *Tuple) TypeName() string {
@@ -251,13 +264,18 @@ func (nc *Tuple) Create() ([]runtime.Instruction, error) {
 type Alias struct {
 	Holds OBJType
 	Name  string
+	Owner Module
 }
 
-func AliasFor(name string, obj OBJType) OBJType {
+func AliasFor(name string, obj OBJType, module Module) OBJType {
 	if obj.Primitive() == ALIAS {
 		obj = obj.(*Alias).Holds
 	}
-	return &Alias{obj, name}
+	return &Alias{obj, name, module}
+}
+
+func (nc *Alias) Module() Module {
+	return nc.Owner
 }
 
 func (nc *Alias) TypeName() string {
@@ -288,10 +306,15 @@ type Structure struct {
 	ItemTypes []OBJType
 	Fields    map[string]int
 	Name      string
+	Owner     Module
 }
 
-func StructOf(items []OBJType, fields map[string]int, name string) OBJType {
-	return &Structure{items, fields, name}
+func StructOf(items []OBJType, fields map[string]int, name string, module Module) OBJType {
+	return &Structure{items, fields, name, module}
+}
+
+func (nc *Structure) Module() Module {
+	return nc.Owner
 }
 
 func (nc *Structure) TypeName() string {
@@ -333,6 +356,10 @@ type FunctionType struct {
 
 func FunctionTypeOf(args []OBJType, ret OBJType) OBJType {
 	return &FunctionType{args, ret}
+}
+
+func (nc *FunctionType) Module() Module {
+	return core
 }
 
 func (nc *FunctionType) TypeName() string {

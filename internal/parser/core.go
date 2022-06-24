@@ -76,20 +76,33 @@ func (p *Parser) parseArguments(tks []Token) (args []string, types []OBJType, us
 	return
 }
 
-func (p *Parser) loadModuleAux(tks []Token, fn func(string) (map[string]Symbol, *Scope, error)) error {
-	/*tks = discardOne(tks)
-	t, tks, e := expectT(tks, IdToken)
+func (p *Parser) parseImport(block Block) error {
+	tks := discardOne(block.Tokens)
+	name, tks, e := expectT(tks, StringToken)
 	if e != nil {
 		return e
 	}
-	if e := unexpect(tks); e != nil {
+	mod, e := p.env.LoadModule(p.envId, name.Data)
+	if e == nil && mod != nil {
+		if nextT(tks, IdToken) {
+			p.rootscope.ImportedModules[tks[0].Data] = mod
+			tks = discardOne(tks)
+		} else if next(tks, direct) {
+			scope, e := mod.TryGetScope()
+			if e != nil {
+				return e
+			}
+			if e := p.currentScope().ImportFrom(scope); e != nil {
+				return e
+			}
+			tks = discardOne(tks)
+		} else {
+			return errors.New("Expecting direct import or named module import")
+		}
+	} else {
 		return e
-	}*/
-	//FIXME: Fix module inclusion
-	/*f, s, e := fn(t.Data)
-	p.addSymbols(f)
-	p.currentScope().Merge(s)*/
-	return nil
+	}
+	return unexpect(tks)
 }
 
 func (p *Parser) parseFunction(block Block, operator bool) error {
@@ -556,7 +569,7 @@ func (p *Parser) parseAliasFor(tks []Token) error {
 	if tks, err = expect(tks, FOR); err != nil {
 		return err
 	}
-	if err = p.currentScope().NewType(aliasname.Data, AliasFor(aliasname.Data, Void)); err != nil {
+	if err = p.currentScope().NewType(aliasname.Data, AliasFor(aliasname.Data, Void, p.currentScope().DataModule)); err != nil {
 		return err
 	}
 	var obj OBJType
@@ -750,17 +763,15 @@ func (p *Parser) parseStruct(block Block) error {
 	if len(tuple) == 0 {
 		return errors.New("Expecting at least one field")
 	}
-	structure := StructOf(tuple, indexer, name.Data)
+	structure := StructOf(tuple, indexer, name.Data, p.currentScope().DataModule)
 	return p.currentScope().NewType(name.Data, structure)
 }
 
 func (p *Parser) parseByKeyword(name string, block Block, scp ScopeCtx) error {
 	if scp == Global {
 		switch name {
-		case "require":
-			return p.loadModuleAux(block.Tokens, p.env.Native)
 		case "import":
-			return p.loadModuleAux(block.Tokens, p.env.File)
+			return p.parseImport(block)
 		case "fn", "op":
 			return p.parseFunction(block, name == "op")
 		case "drop":
@@ -875,7 +886,7 @@ func (p *Parser) parseBlocks(blocks []Block, scp ScopeCtx) error {
 				if block.Begin != block.End {
 					lineid = lineid + ".." + strconv.Itoa(block.End)
 				}
-				return errors.New(fmt.Sprintf("[Error in line (%s)]\n\t%s", lineid, strerr))
+				return errors.New(fmt.Sprintf("[File: %s] [Error in line (%s)]\n\t%s", p.GetModule().Name(), lineid, strerr))
 			}
 			return e
 		}

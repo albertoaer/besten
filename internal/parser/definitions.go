@@ -19,6 +19,7 @@ var (
 	VAR            = Token{Data: "var", Kind: KeywordToken}
 	REF            = Token{Data: "ref", Kind: KeywordToken}
 	SPAWN          = Token{Data: "spawn", Kind: KeywordToken}
+	direct         = Token{Data: "direct", Kind: KeywordToken}
 	DOT            = Token{Data: ".", Kind: SpecialToken}
 	INDEXOP        = Token{Data: "[]", Kind: OperatorToken}
 	ASSIGN         = Token{Data: "=", Kind: OperatorToken}

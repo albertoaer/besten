@@ -52,8 +52,8 @@ var string_mark rune = '"'
 var decimal_mark rune = '.'
 var underscore_mark rune = '_'
 var specials []string = []string{",", ".", "(", ")", ":", "[", "]", "{", "}"}
-var keywords []string = []string{"require", "import", "struct", "return", "fn", "op", "do",
-	"val", "var", "if", "else", "for", "in", "while", "collect", "done", "throw", "catch",
+var keywords []string = []string{"import", "struct", "return", "fn", "op", "do",
+	"val", "var", "if", "else", "for", "in", "while", "collect", "throw", "catch",
 	"true", "false", "direct", "ref", "break", "continue", "omit", "drop", "alias", "spawn"}
 
 func strArrContains(arr []string, elem string) bool {
