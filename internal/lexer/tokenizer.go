@@ -102,7 +102,6 @@ func updateMask(previous []rune, mask TokenType, char rune) (newmask TokenType, 
 		if mask == DecimalToken || mask == IntegerToken || mask == IdToken {
 			action = mergeTokens
 		} else if mask == OperatorToken && len(previous) == 1 && previous[0] == negative_mark {
-			//TODO: Check out negative implementation, maybe operator would be better
 			newmask = IntegerToken
 			action = mergeTokens
 		} else {
