@@ -129,8 +129,11 @@ func (s *syntaxCall) runIntoStack(p *Parser, stack *[]Instruction) (OBJType, err
 	ops := make([]OBJType, len(s.operands))
 	for i := len(s.operands) - 1; i >= 0; i-- {
 		var e error
-		if ops[len(s.operands)-1-i], e = s.operands[i].runIntoStack(p, stack); e != nil {
+		if ops[i], e = s.operands[i].runIntoStack(p, stack); e != nil {
 			return nil, e
+		}
+		if ops[i].Primitive() == VOID {
+			return nil, errors.New("Using Void as function argument")
 		}
 	}
 	ins, ret, err := p.solveFunctionCall(s.relation.route[0], false, ops)
@@ -147,8 +150,11 @@ func (s *syntaxOpCall) runIntoStack(p *Parser, stack *[]Instruction) (OBJType, e
 	ops := make([]OBJType, len(s.operands))
 	for i := len(s.operands) - 1; i >= 0; i-- {
 		var e error
-		if ops[len(s.operands)-1-i], e = s.operands[i].runIntoStack(p, stack); e != nil {
+		if ops[i], e = s.operands[i].runIntoStack(p, stack); e != nil {
 			return nil, e
+		}
+		if ops[i].Primitive() == VOID {
+			return nil, errors.New("Using Void as operator argument")
 		}
 	}
 	ins, ret, err := p.solveFunctionCall(s.operator, true, ops)
@@ -184,8 +190,11 @@ func (s *syntaxHighLevelCall) runIntoStack(p *Parser, stack *[]Instruction) (OBJ
 	ops := make([]OBJType, len(s.operands))
 	for i := len(s.operands) - 1; i >= 0; i-- {
 		var e error
-		if ops[len(s.operands)-1-i], e = s.operands[i].runIntoStack(p, stack); e != nil {
+		if ops[i], e = s.operands[i].runIntoStack(p, stack); e != nil {
 			return nil, e
+		}
+		if ops[i].Primitive() == VOID {
+			return nil, errors.New("Using Void as function argument")
 		}
 	}
 	ins, ret, err := p.solveFunctionCall(s.relation.route[0], false, ops)

@@ -3,6 +3,7 @@ package parser
 import (
 	"errors"
 	"fmt"
+	"strconv"
 
 	. "github.com/Besten/internal/lexer"
 	. "github.com/Besten/internal/runtime"
@@ -114,12 +115,79 @@ func (p *Parser) parseReturn(block Block) error {
 		}
 		//Is valid returning void, in order to achive infinite recursion
 		if (*p.currentScope().ReturnType).Primitive() == VOID || CompareTypes(*p.currentScope().ReturnType, ret) {
-			p.currentScope().ReturnType = &ret
+			*p.currentScope().ReturnType = ret
+		} else {
+			return errors.New(fmt.Sprintf("Expecting return type: %s", (*p.currentScope().ReturnType).TypeName()))
 		}
 	} else if (*p.currentScope().ReturnType).Primitive() != VOID {
 		return errors.New(fmt.Sprintf("Expecting return type: %s", (*p.currentScope().ReturnType).TypeName()))
 	}
 	p.addInstruction(MKInstruction(RET))
+	return nil
+}
+
+func (p *Parser) parseDirectLine(tks []Token) error {
+	if len(tks) > 0 {
+		tk, tks, err := expectT(tks, IntegerToken)
+		if err != nil {
+			return err
+		}
+		icode, err := strconv.Atoi(tk.Data)
+		if err != nil {
+			return err
+		}
+		objs := make([]Object, 0)
+		for _, t := range tks {
+			switch t.Kind {
+			case StringToken:
+				objs = append(objs, t.Data)
+			case IntegerToken:
+				i, e := strconv.Atoi(t.Data)
+				if e != nil {
+					return e
+				}
+				objs = append(objs, i)
+			case DecimalToken:
+				f, e := strconv.ParseFloat(t.Data, 64)
+				if e != nil {
+					return e
+				}
+				objs = append(objs, f)
+			case KeywordToken:
+				if t.Data == TRUE.Data {
+					objs = append(objs, -1)
+					break
+				} else if t.Data == FALSE.Data {
+					objs = append(objs, 0)
+					break
+				}
+				fallthrough
+			default:
+				return errors.New("Wrong literal")
+			}
+		}
+		p.addInstruction(MKInstruction(ICode(icode), objs...))
+	}
+	return nil
+}
+
+func (p *Parser) parseDirect(block Block) error {
+	tks := discardOne(block.Tokens)
+	tks, err := expect(tks, DO)
+	if err != nil {
+		return err
+	}
+	if err = unexpect(tks); err != nil {
+		return err
+	}
+	for _, child := range block.Children {
+		if len(child.Children) != 0 {
+			return errors.New("Direct block cannot have childs")
+		}
+		if err := p.parseDirectLine(child.Tokens); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -136,6 +204,8 @@ func (p *Parser) parseByKeyword(name string, block Block, scp ScopeCtx) error {
 		switch name {
 		case "return":
 			return p.parseReturn(block)
+		case "direct":
+			return p.parseDirect(block)
 		}
 	}
 	switch name {
