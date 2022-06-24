@@ -69,6 +69,20 @@ func injectBuiltinFunctions(to *FunctionCollection) {
 	to.AddSymbol("int", &FunctionSymbol{"none", false, MKInstruction(DTI).Fragment(), CloneType(Int), []OBJType{Dec}})
 	to.AddSymbols("str", multiTypeInstruction(1, Str, map[OBJType]ICode{Str: NOP, Int: IRE, Dec: DRE}))
 	to.AddSymbols("len", multiTypeInstruction(1, Int, map[OBJType]ICode{Str: SOS, MapOf(Any): SOM, VecOf(Any): SOV}))
+	to.AddDynamicSymbol("vec", func(o []OBJType) *FunctionSymbol {
+		if len(o) > 0 {
+			ret := VecOf(o[0])
+			return &FunctionSymbol{"none", true, []Instruction{}, &ret, []OBJType{VecOf(Str)}}
+		}
+		return nil
+	})
+	to.AddDynamicSymbol("pop", func(o []OBJType) *FunctionSymbol {
+		if len(o) == 1 && o[0].Primitive() == VECTOR {
+			ret := o[0].Items()
+			return &FunctionSymbol{"none", false, []Instruction{MKInstruction(PFV)}, &ret, []OBJType{o[0].Items()}}
+		}
+		return nil
+	})
 }
 
 func injectBuiltinOperators(to *FunctionCollection) {

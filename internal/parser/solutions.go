@@ -9,7 +9,25 @@ import (
 	"github.com/Besten/internal/runtime"
 )
 
-func (p *Parser) solveFunctionCall(name string, operator bool, callers []OBJType) (ins []runtime.Instruction, ret OBJType, err error) {
+func (p *Parser) solveFunctionCall(name string, operator bool, callers []OBJType,
+	insbuffers [][]runtime.Instruction, into *[]runtime.Instruction) (ret OBJType, err error) {
+	var sym *FunctionSymbol
+	sym, err = p.getSymbolForCall(name, operator, callers)
+	if err != nil {
+		return
+	}
+	ret = *sym.Return
+	for i := range insbuffers {
+		*into = append(*into, insbuffers[len(insbuffers)-i-1]...)
+		if len(insbuffers)-i == len(sym.Args) && sym.Varargs {
+			*into = append(*into, runtime.MKInstruction(runtime.CSE, len(insbuffers)-len(sym.Args)+1))
+		}
+	}
+	*into = append(*into, sym.Call...)
+	return
+}
+
+func (p *Parser) getSymbolForCall(name string, operator bool, callers []OBJType) (sym *FunctionSymbol, err error) {
 	if operator && (len(callers) > 2 || len(callers) < 1) {
 		err = errors.New(fmt.Sprintf("Operators cannot have %d arguments", len(callers)))
 		return
@@ -21,8 +39,7 @@ func (p *Parser) solveFunctionCall(name string, operator bool, callers []OBJType
 			return
 		}
 	}
-	ins = s.Call
-	ret = *s.Return
+	sym = s
 	return
 }
 
@@ -46,7 +63,12 @@ func (p *Parser) findFunction(name string, operator bool, callers []OBJType) (sy
 outer:
 	for i := range vec {
 		for e := 0; e < len(callers); e++ {
-			if !CompareTypes(callers[e], vec[i].Args[e]) {
+			if vec[i].Varargs && e >= len(vec[i].Args)-1 {
+				last := vec[i].Args[len(vec[i].Args)-1]
+				if last.Primitive() != VECTOR || !CompareTypes(callers[e], last.Items()) {
+					continue outer
+				}
+			} else if !CompareTypes(callers[e], vec[i].Args[e]) {
 				continue outer
 			}
 		}
@@ -97,24 +119,38 @@ func (p *Parser) generateFunctionFromTemplate(name string, operator bool, caller
 }
 
 func (p *Parser) generateFunctionFromRawTemplate(name string, operator bool, callers []OBJType, template *FunctionTemplate) (sym *FunctionSymbol, err error) {
-	compilename := generateFnUUID(name, p.modulename, len(callers))
+	compilename := generateFnUUID(name, p.modulename, len(template.Args), template.Varargs)
 
-	p.openFragmentFor(compilename, len(template.Args), template.Varargs)
+	p.openFragmentFor(compilename, len(template.Args))
 
+	args := make([]OBJType, 0)
+
+	for i := range template.Args {
+		if template.Varargs && i == len(template.Args)-1 {
+			for j := i + 1; j < len(callers); j++ {
+				if !CompareTypes(callers[j-1], callers[j]) {
+					err = errors.New("Variadic elements must all be the same type")
+					return
+				}
+			}
+			v := VecOf(callers[i])
+			p.currentScope().CreateVariable(template.Args[i], v, true, true)
+			args = append(args, v)
+		} else {
+			p.currentScope().CreateVariable(template.Args[i], callers[i], true, true)
+			args = append(args, callers[i])
+		}
+	}
 	/*
 		Create function reference before function in order to avoid posible infinite dependency loops
 	*/
-	sym = &FunctionSymbol{CName: compilename, Call: runtime.MKInstruction(runtime.CLL, compilename).Fragment(), Return: p.currentScope().ReturnType, Args: callers}
+	sym = &FunctionSymbol{CName: compilename, Call: runtime.MKInstruction(runtime.CLL, compilename).Fragment(), Return: p.currentScope().ReturnType, Args: args, Varargs: template.Varargs}
 	if operator {
 		p.currentScope().Operators.AddSymbol(name, sym)
 	} else {
 		p.currentScope().Functions.AddSymbol(name, sym)
 	}
 
-	for i := range template.Args {
-		//Stack, invert order
-		p.currentScope().CreateVariable(template.Args[i], callers[i], true, true)
-	}
 	err = p.parseBlocks(template.Children, Function)
 	if err != nil {
 		return
@@ -141,7 +177,7 @@ var counters map[struct {
 	int
 }]*int)
 
-func generateFnUUID(name, module string, args int) string {
+func generateFnUUID(name, module string, args int, varargs bool) string {
 	v, e := counters[struct {
 		string
 		int
@@ -155,7 +191,11 @@ func generateFnUUID(name, module string, args int) string {
 		}{name, args}] = v
 	}
 	modulesum := md5.Sum([]byte(module))
-	result := fmt.Sprintf("%s/%d@%x%d", name, args, modulesum, *v)
+	mode := "a"
+	if varargs {
+		mode = "v"
+	}
+	result := fmt.Sprintf("%s/%d$%s@%x%d", name, args, mode, modulesum, *v)
 	(*v)++
 	return result
 }

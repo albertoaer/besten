@@ -35,6 +35,9 @@ func parseArguments(tks []Token) (args []string, types []OBJType, usetypes bool,
 		n := v
 		if next(n, QUOTE) {
 			if i == len(argtk)-1 {
+				if usetypes {
+					err = errors.New("Varargs must be template")
+				}
 				varargs = true
 				n = discardOne(n)
 			} else {
@@ -49,6 +52,9 @@ func parseArguments(tks []Token) (args []string, types []OBJType, usetypes bool,
 		}
 		args = append(args, nm.Data)
 		if i == 0 && len(n) > 0 {
+			if varargs {
+				err = errors.New("Varargs must be template")
+			}
 			usetypes = true
 			types = make([]OBJType, 0)
 		}
@@ -373,7 +379,8 @@ func (p *Parser) parseWhile(block Block) error {
 }
 
 func (p *Parser) parseFor(block Block) error {
-	tks := discardOne(block.Tokens)
+	//FIXME: For loop
+	/*tks := discardOne(block.Tokens)
 	tks, r := readUntilToken(tks, DO)
 	sides, e := splitByToken(tks, func(t Token) bool { return t == IN }, []struct {
 		open  Token
@@ -384,7 +391,7 @@ func (p *Parser) parseFor(block Block) error {
 	}
 	if len(sides) != 2 {
 		return errors.New("Expecting 'in' keyword")
-	}
+	}*/
 	/*
 		Steps:
 			- get iter(obj) method -> get the iterator from an object, done by the user
@@ -393,7 +400,7 @@ func (p *Parser) parseFor(block Block) error {
 			- get val(iter) method -> call each cycle, after checking is not the end
 			- get next(iter) method -> call each cycle, at the end
 	*/
-	itertp, e := p.parseExpression(sides[1], nil, false)
+	/*itertp, e := p.parseExpression(sides[1], nil, false)
 	var name string
 	{
 		t, r, e := expectT(sides[0], IdToken)
@@ -459,7 +466,7 @@ func (p *Parser) parseFor(block Block) error {
 	p.addInstruction(setiter)
 	end := p.fragmentSize()
 	p.addInstruction(MKInstruction(MVR, forstart-end-1))
-	p.editInstruction(editpoint, MKInstruction(MVT, end-begin+1))
+	p.editInstruction(editpoint, MKInstruction(MVT, end-begin+1))*/
 	return nil
 }
 

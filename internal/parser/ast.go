@@ -111,11 +111,8 @@ func (s *syntaxConstantAccess) runIntoStack(p *Parser, stack *[]Instruction) (OB
 		return nil, e
 	}
 	if r.Primitive() != TUPLE { //When is not tuple related search for index operator
-		ins, ret, err := p.solveFunctionCall(INDEXOP.Data, true, []OBJType{r, Int})
-		*stack = append(*stack, MKInstruction(PSH, s.idx))
-		*stack = append(*stack, tempstack...)
-		*stack = append(*stack, ins...)
-		return ret, err
+		return p.solveFunctionCall(INDEXOP.Data, true, []OBJType{r, Int},
+			[][]Instruction{MKInstruction(PSH, s.idx).Fragment(), tempstack}, stack)
 	}
 	*stack = append(*stack, tempstack...)
 	elems := r.FixedItems()
@@ -223,21 +220,11 @@ func (s *syntaxCall) runIntoStack(p *Parser, stack *[]Instruction) (OBJType, err
 	if len(s.relation.route) > 1 {
 		return Void, errors.New("Not implemented function route navigation")
 	}
-	ops := make([]OBJType, len(s.operands))
-	for i := len(s.operands) - 1; i >= 0; i-- {
-		var e error
-		if ops[i], e = s.operands[i].runIntoStack(p, stack); e != nil {
-			return nil, e
-		}
-		if ops[i].Primitive() == VOID {
-			return nil, errors.New("Using Void as function argument")
-		}
+	ops, stacks, err := runBranchesIntoStacks(p, s.operands)
+	if err != nil {
+		return nil, err
 	}
-	ins, ret, err := p.solveFunctionCall(s.relation.route[0], false, ops)
-	if err == nil {
-		*stack = append(*stack, ins...)
-	}
-	return ret, err
+	return p.solveFunctionCall(s.relation.route[0], false, ops, stacks, stack)
 }
 
 type syntaxOpCall struct {
@@ -248,20 +235,11 @@ type syntaxOpCall struct {
 
 func (s *syntaxOpCall) runIntoStack(p *Parser, stack *[]Instruction) (OBJType, error) {
 	ops := make([]OBJType, len(s.operands))
-	for i := len(s.operands) - 1; i >= 0; i-- {
-		var e error
-		if ops[i], e = s.operands[i].runIntoStack(p, stack); e != nil {
-			return nil, e
-		}
-		if ops[i].Primitive() == VOID {
-			return nil, errors.New("Using Void as operator argument")
-		}
+	ops, stacks, err := runBranchesIntoStacks(p, s.operands)
+	if err != nil {
+		return nil, err
 	}
-	ins, ret, err := p.solveFunctionCall(s.operator, true, ops)
-	if err == nil {
-		*stack = append(*stack, ins...)
-	}
-	return ret, err
+	return p.solveFunctionCall(s.operator, true, ops, stacks, stack)
 }
 
 type syntaxTypeCreation struct {
@@ -296,22 +274,15 @@ func (s *syntaxHighLevelCall) runIntoStack(p *Parser, stack *[]Instruction) (OBJ
 	if len(s.relation.route) > 1 {
 		return Void, errors.New("Not implemented function route navigation")
 	}
-	ops := make([]OBJType, len(s.operands))
-	for i := len(s.operands) - 1; i >= 0; i-- {
-		var e error
-		if ops[i], e = s.operands[i].runIntoStack(p, stack); e != nil {
-			return nil, e
-		}
-		if ops[i].Primitive() == VOID {
-			return nil, errors.New("Using Void as function argument")
-		}
+	ops, stacks, err := runBranchesIntoStacks(p, s.operands)
+	if err != nil {
+		return nil, err
 	}
-	ins, ret, err := p.solveFunctionCall(s.relation.route[0], false, ops)
+	ret, err := p.solveFunctionCall(s.relation.route[0], false, ops, stacks, stack)
 	if err == nil {
-		if s.owner.inReturn && ins[len(ins)-1].Code == CLL {
-			ins[len(ins)-1].Code = JMP
+		if s.owner.inReturn && (*stack)[len(*stack)-1].Code == CLL {
+			(*stack)[len(*stack)-1].Code = JMP
 		}
-		*stack = append(*stack, ins...)
 	}
 	return ret, err
 }
@@ -332,6 +303,21 @@ func (s *syntaxAssignment) runIntoStack(p *Parser, stack *[]Instruction) (OBJTyp
 
 type syntaxBranch interface {
 	runIntoStack(p *Parser, stack *[]Instruction) (OBJType, error)
+}
+
+func runBranchesIntoStacks(p *Parser, branches []syntaxBranch) ([]OBJType, [][]Instruction, error) {
+	ops := make([]OBJType, len(branches))
+	stacks := make([][]Instruction, len(branches))
+	for i := len(branches) - 1; i >= 0; i-- {
+		var e error
+		if ops[i], e = branches[i].runIntoStack(p, &stacks[i]); e != nil {
+			return nil, nil, e
+		}
+		if ops[i].Primitive() == VOID {
+			return nil, nil, errors.New("Using Void as function argument")
+		}
+	}
+	return ops, stacks, nil
 }
 
 type syntaxBranchGetSet interface {

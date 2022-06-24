@@ -115,7 +115,7 @@ func (collection *FunctionCollection) FindTemplate(name string, args int) *Funct
 	if f, e := v.fixedargs[args]; e {
 		return &f
 	}
-	if v.variadic != nil && len(v.variadic.Args)-1 <= args {
+	if v.variadic != nil && len(v.variadic.Args) <= args {
 		return v.variadic
 	}
 	return nil
@@ -164,12 +164,12 @@ func (collection *FunctionCollection) AddDynamicSymbol(name string, dsym Dynamic
 
 /*
 Adds an array of non-variadic functions into de collection associated with a name
-NOT VALID FOR NON VARIADIC
+NOT VALID FOR VARIADIC
 length will be taken from the first symbol
 */
 func (collection *FunctionCollection) AddSymbols(name string, functions []*FunctionSymbol) error {
 	if functions == nil || len(functions) == 0 {
-		return errors.New("Symbol %s :: Symbol array with length 0")
+		return errors.New(fmt.Sprintf("Symbol %s :: Symbol array with length 0", name))
 	}
 	v, e := collection.functions[name]
 	if !e {
@@ -200,7 +200,7 @@ func (collection *FunctionCollection) FindSymbol(name string, args int) []*Funct
 		return nil
 	}
 	vec := v.fixedargs[args]
-	if args >= v.minvariadicargs-1 { //Variadic argument might be omited and will be an array of length 0
+	if args >= v.minvariadicargs {
 		vec = append(vec, v.variadic...)
 	}
 	return vec
