@@ -180,7 +180,7 @@ func (collection *FunctionCollection) AddSymbol(name string, function *FunctionS
 	}
 	if function.Varargs {
 		if v.minvariadicargs >= 0 && v.minvariadicargs != len(function.Args) {
-			return errors.New("Symbol %s :: Variadic function with diferent number of arguments")
+			return fmt.Errorf("Symbol %s :: Variadic function with diferent number of arguments", name)
 		}
 		v.minvariadicargs = len(function.Args)
 		v.variadic = append(v.variadic, function)

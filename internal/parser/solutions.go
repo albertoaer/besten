@@ -163,12 +163,20 @@ func (p *Parser) generateFunctionFromRawTemplate(name string, operator bool, cal
 		Create function reference before function in order to avoid posible infinite dependency loops
 	*/
 	sym = &FunctionSymbol{CName: compilename, Call: runtime.MKInstruction(runtime.CLL, compilename).Fragment(), Return: p.currentScope().ReturnType, Args: args, Varargs: template.Varargs}
+	var err2 error
 	if operator {
-		p.currentScope().Operators.AddSymbol(name, sym)
-		originScope.Operators.AddSymbol(name, sym)
+		err = p.currentScope().Operators.AddSymbol(name, sym)
+		err2 = originScope.Operators.AddSymbol(name, sym)
 	} else {
-		p.currentScope().Functions.AddSymbol(name, sym)
-		originScope.Functions.AddSymbol(name, sym)
+		err = p.currentScope().Functions.AddSymbol(name, sym)
+		err2 = originScope.Functions.AddSymbol(name, sym)
+	}
+
+	if err != nil || err2 != nil {
+		if err == nil {
+			err = err2
+		}
+		return
 	}
 
 	err = p.parseBlocks(template.Children, Function)
