@@ -6,13 +6,10 @@ import (
 )
 
 func (p *Parser) parseExpression(tks []Token, children []Block, returning bool) (OBJType, error) {
-	ast, err := GenerateTree(p, tks, children, returning)
-	if err != nil {
-		return Void, err
+	t, stack, err := p.parseExpressionInto(tks, children, returning)
+	if err == nil {
+		p.addInstructions(stack)
 	}
-	stack := make([]Instruction, 0)
-	t, err := ast.runIntoStack(&stack)
-	p.addInstructions(stack)
 	return t, err
 }
 
@@ -23,6 +20,5 @@ func (p *Parser) parseExpressionInto(tks []Token, children []Block, returning bo
 	}
 	stack := make([]Instruction, 0)
 	t, err := ast.runIntoStack(&stack)
-	p.addInstructions(stack)
 	return t, stack, err
 }

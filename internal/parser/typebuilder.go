@@ -37,16 +37,8 @@ func genericSolveType(parts [][]Token, parser *Parser) (OBJType, error) {
 		if len(parts) > 1 {
 			return nil, errors.New("Referenced type has no child type")
 		}
-		tail := discardOne(base)
-		var err error
-		if err = unexpect(discardOne(tail)); err != nil {
-			return nil, err
-		}
-		var id Token
-		if id, _, err = expectT(tail, IdToken); err != nil {
-			return nil, err
-		}
-		_, o, err := parser.currentScope().GetVariableIns(id.Data)
+		exp := discardOne(base)
+		o, _, err := parser.parseExpressionInto(exp, nil, false)
 		return o, err
 	}
 	if base[0] == CBOPEN {
