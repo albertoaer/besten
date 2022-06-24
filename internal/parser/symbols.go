@@ -112,6 +112,19 @@ func injectBuiltinOperators(to *FunctionCollection) {
 		}
 		return nil
 	})
+	to.AddDynamicSymbol("->", func(o []OBJType) *FunctionSymbol {
+		//Can be implemented by symbol switch but is useful to be this way in order to future custom type generation
+		if len(o) == 2 {
+			var ins []Instruction
+			if o[1].Primitive() == VECTOR && CompareTypes(o[0], o[1].Items()) {
+				ins = []Instruction{MKInstruction(SWT), MKInstruction(PTW), MKInstruction(APP)}
+			} else {
+				return nil
+			}
+			return &FunctionSymbol{"none", false, ins, CloneType(Void), o}
+		}
+		return nil
+	})
 }
 
 type Variable struct {
