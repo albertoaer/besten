@@ -12,6 +12,7 @@ type RescuePoint struct {
 	fragment  string
 	stack     int
 	callstack int
+	exported  int
 }
 
 type VM struct {
@@ -127,6 +128,13 @@ func (proc *Process) ReturnLastPoint() {
 		proc.pc = point.pc
 		proc.env = &point.env
 		proc.locals = &point.locals
+		if len(proc.rescues) > 0 {
+			i := 0
+			for i < len(proc.rescues) && proc.rescues[len(proc.rescues)-i-1].callstack > proc.callstack.idx {
+				i++
+			}
+			proc.rescues = proc.rescues[0 : len(proc.rescues)-i]
+		}
 	}
 }
 
@@ -193,6 +201,15 @@ func (proc *Process) run() {
 				proc.rescues = proc.rescues[0 : len(proc.rescues)-1]
 				proc.functionstack.index = rescue.stack
 				proc.callstack.idx = rescue.callstack
+				proc.env, proc.locals = proc.callstack.GetAvailableItems()
+				if rescue.exported >= 0 {
+					v := rescue.exported & 128
+					if v == 0 {
+						proc.functionstack.Push(proc.env.GetEnvironment(rescue.exported))
+					} else {
+						proc.functionstack.Push(proc.locals.GetLocal(rescue.exported & 127))
+					}
+				}
 				proc.functionstack.Push(fmt.Sprintf("%v", e))
 				proc.JumpToFragment(rescue.fragment)
 			}
@@ -250,7 +267,7 @@ func (proc *Process) run() {
 					panic(e)
 				}
 				fstack.Push(f)
-				//COMPARISON
+			//COMPARISON
 			case EQI:
 				fstack.Push(boolNum(fstack.a(ins).(int) == fstack.b(ins).(int)))
 			case EQD:
@@ -416,7 +433,7 @@ func (proc *Process) run() {
 				panic(fstack.a(ins))
 			case RE:
 				proc.rescues = append(proc.rescues, RescuePoint{fstack.a(ins).(string),
-					fstack.index, proc.callstack.idx})
+					fstack.index, proc.callstack.idx, fstack.b(ins).(int)})
 			case DR:
 				proc.rescues = proc.rescues[0 : len(proc.rescues)-1]
 			//Interaction
