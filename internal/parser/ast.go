@@ -178,7 +178,7 @@ func (s *syntaxRoute) runIntoStack(p *Parser, stack *[]Instruction) (OBJType, er
 	if s.origin != nil {
 		tp, err = s.origin.runIntoStack(p, stack)
 		if err != nil {
-			return Void, err
+			return nil, err
 		}
 	} else {
 		var ins Instruction
@@ -194,7 +194,7 @@ func (s *syntaxRoute) runIntoStack(p *Parser, stack *[]Instruction) (OBJType, er
 			tp = tp.FixedItems()[idx]
 			*stack = append(*stack, MKInstruction(ACC, nil, idx))
 		} else {
-			return Void, fmt.Errorf("Type %s does not have property %s", tp.TypeName(), r)
+			return nil, fmt.Errorf("Type %s does not have property %s", tp.TypeName(), r)
 		}
 	}
 	return tp, err
@@ -282,17 +282,19 @@ func (s *syntaxCast) runIntoStack(p *Parser, stack *[]Instruction) (OBJType, err
 }
 
 type syntaxCall struct {
-	relation *syntaxRoute
-	operands []syntaxBranch
-	owner    *SyntaxTree
+	relation  *syntaxRoute
+	operands  []syntaxBranch
+	highLevel bool
+	spawned   bool
+	owner     *SyntaxTree
 }
 
 func (s *syntaxCall) runIntoStack(p *Parser, stack *[]Instruction) (OBJType, error) {
 	if s.relation == nil || len(s.relation.route) == 0 {
-		return Void, errors.New("No way to fetch function")
+		return nil, errors.New("No way to fetch function")
 	}
 	if s.relation.origin != nil {
-		return Void, errors.New("A function must always be global defined")
+		return nil, errors.New("A function must always be global defined")
 	}
 	name, scope, err := getNameAndScope(p, s.relation.route)
 	if err != nil {
@@ -308,6 +310,23 @@ func (s *syntaxCall) runIntoStack(p *Parser, stack *[]Instruction) (OBJType, err
 		return nil, err
 	}
 	p.closeScope()
+	if s.spawned {
+		if (*stack)[len(*stack)-1].Code == CLL {
+			(*stack)[len(*stack)-1].Code = CLT
+			ret = Void
+		} else {
+			return nil, errors.New("Trying to spawn a function not enabled for so, wrap it as you need")
+		}
+	}
+	if s.highLevel {
+		if s.owner.inReturn {
+			if (*stack)[len(*stack)-1].Code == CLL {
+				(*stack)[len(*stack)-1].Code = JMP
+			} else if (*stack)[len(*stack)-1].Code == CLX {
+				(*stack)[len(*stack)-1].Code = JMX
+			}
+		}
+	}
 	return ret, nil
 }
 
@@ -359,10 +378,10 @@ func (s *syntaxFnReference) runIntoStack(p *Parser, stack *[]Instruction) (OBJTy
 	}
 	args := operandTuple.FixedItems()
 	if s.relation == nil || len(s.relation.route) == 0 {
-		return Void, errors.New("No way to fetch function")
+		return nil, errors.New("No way to fetch function")
 	}
 	if s.relation.origin != nil {
-		return Void, errors.New("A function must always be global defined")
+		return nil, errors.New("A function must always be global defined")
 	}
 	name, scope, err := getNameAndScope(p, s.relation.route)
 	if err != nil {
@@ -419,28 +438,6 @@ func (s *syntaxTypeCreation) runIntoStack(p *Parser, stack *[]Instruction) (OBJT
 	}
 	*stack = append(*stack, i...)
 	return constructorFor(obj, p, stack)
-}
-
-type syntaxHighLevelCall struct {
-	relation *syntaxRoute
-	operands []syntaxBranch
-	spawned  bool
-	owner    *SyntaxTree
-}
-
-func (s *syntaxHighLevelCall) runIntoStack(p *Parser, stack *[]Instruction) (OBJType, error) {
-	call := syntaxCall{relation: s.relation, operands: s.operands, owner: s.owner}
-	ret, err := call.runIntoStack(p, stack)
-	if err == nil {
-		if s.owner.inReturn {
-			if (*stack)[len(*stack)-1].Code == CLL {
-				(*stack)[len(*stack)-1].Code = JMP
-			} else if (*stack)[len(*stack)-1].Code == CLX {
-				(*stack)[len(*stack)-1].Code = JMX
-			}
-		}
-	}
-	return ret, err
 }
 
 type syntaxAssignment struct {
@@ -505,7 +502,7 @@ type SyntaxTree struct {
 
 func (s *SyntaxTree) runIntoStack(stack *[]Instruction) (OBJType, error) {
 	if s.root == nil {
-		return Void, errors.New("No expression node to parse")
+		return nil, errors.New("No expression node to parse")
 	}
 	return s.root.runIntoStack(s.parser, stack)
 }
@@ -549,31 +546,24 @@ func (s *SyntaxTree) splitAssignmentExpression(tks []Token, children []Block) (s
 	return nil, errors.New("Cannot set")
 }
 
-func (s *SyntaxTree) generateFirstLevelExpression(tks []Token, children []Block) (syntaxBranch, error) {
-	if len(tks) > 0 {
-		name, args, spawned, err := splitFirstLevelFunctionCall(tks)
-		if err != nil {
-			return nil, err
-		}
-		if len(name) != 0 {
-			var op syntaxHighLevelCall
-			op.owner = s
-			op.spawned = spawned
-			route, e := getRoute(name)
-			if e != nil {
-				return nil, e
-			}
-			op.relation = &syntaxRoute{origin: nil, route: route}
-			op.operands, err = s.generateOperands(args)
-			if err != nil {
-				return nil, err
-			}
-			return &op, nil
-		}
-		//No high level function
-		return s.generateSecondLevelExpression(tks)
+func (s *SyntaxTree) generateFirstLevelExpression(tks []Token, children []Block) (sb syntaxBranch, err error) {
+	if len(tks) == 0 {
+		return
 	}
-	return nil, nil
+	name, args, spawned := splitFirstLevelFunctionCall(tks)
+	if len(name) == 0 {
+		return s.generateSecondLevelExpression(tks) //No high level function
+	}
+	var route []string
+	if route, err = getRoute(name); err != nil {
+		return
+	}
+	var operands []syntaxBranch
+	if operands, err = s.generateOperands(args); err != nil {
+		return
+	}
+	return &syntaxCall{relation: &syntaxRoute{origin: nil, route: route}, operands: operands,
+		highLevel: true, spawned: spawned, owner: s}, nil
 }
 
 func (s *SyntaxTree) generateSecondLevelExpression(tks []Token) (syntaxBranch, error) {
@@ -810,7 +800,7 @@ func (s *SyntaxTree) generateFunctionCall(head []Token, callbody []Token) (synta
 	if e != nil {
 		return nil, e
 	}
-	call := syntaxCall{relation: &syntaxRoute{origin: nil, route: route}, operands: make([]syntaxBranch, 0)}
+	call := syntaxCall{relation: &syntaxRoute{origin: nil, route: route}, highLevel: false, spawned: false, operands: make([]syntaxBranch, 0), owner: s}
 	for _, arg := range args {
 		exp, err := s.generateSecondLevelExpression(arg)
 		if err != nil {
@@ -837,7 +827,7 @@ func (s *SyntaxTree) generateOperands(tks []Token) ([]syntaxBranch, error) {
 	return branchs, nil
 }
 
-func splitFirstLevelFunctionCall(tks []Token) (name []Token, args []Token, spawned bool, err error) {
+func splitFirstLevelFunctionCall(tks []Token) (name []Token, args []Token, spawned bool) {
 	if !nextT(tks, IdToken) { //Avoid indentify function reference as call
 		return
 	}
