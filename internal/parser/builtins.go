@@ -273,4 +273,14 @@ func injectBuiltinOperators(to *FunctionCollection) {
 		},
 		Returns: true,
 	}).Fragment(), CloneType(VecOf(Int)), []OBJType{Str}})
+	to.AddDynamicSymbol("%%", func(o []OBJType) *FunctionSymbol {
+		if len(o) == 2 {
+			i := 0
+			if CompareTypes(o[0], o[1]) {
+				i = 1
+			}
+			return &FunctionSymbol{"none", false, MKInstruction(PSH, i).Fragment(), CloneType(Bool), o}
+		}
+		return nil
+	})
 }
