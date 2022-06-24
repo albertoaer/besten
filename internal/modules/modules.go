@@ -49,6 +49,6 @@ func (m *Modules) File(name string) (symbols map[string]Symbol, scope *parser.Sc
 	}
 	prettyTokens(blocks, "")
 	module_parser := parser.NewParser(m)
-	symbols, err = module_parser.GenerateCode(blocks)
+	symbols, err = module_parser.GenerateCode(blocks, name)
 	return
 }

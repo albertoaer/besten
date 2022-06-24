@@ -70,6 +70,16 @@ const (
 	pushNoAdd   int8 = 2
 )
 
+func splitOp(prev []rune, char rune) bool {
+	if unicode.IsSymbol(char) {
+		return false
+	}
+	if len(prev) == 1 && prev[0] == '[' && char == ']' { //special case for operator []
+		return false
+	}
+	return true
+}
+
 //action: It the way tokens will be treat after mask fushions
 func updateMask(previous []rune, mask TokenType, char rune) (newmask TokenType, action int8, err error) {
 	newmask = mask
@@ -82,7 +92,7 @@ func updateMask(previous []rune, mask TokenType, char rune) (newmask TokenType, 
 			action = pushNoAdd
 		} else {
 			newmask = OperatorToken
-			if mask != OperatorToken || !unicode.IsSymbol(char) {
+			if mask != OperatorToken || (mask == OperatorToken && splitOp(previous, char)) {
 				action = pushToken
 			} else {
 				action = mergeTokens

@@ -1,6 +1,10 @@
 package parser
 
 import (
+	"crypto/md5"
+	"encoding/hex"
+	"time"
+
 	. "github.com/Besten/internal/lexer"
 	. "github.com/Besten/internal/runtime"
 )
@@ -11,6 +15,7 @@ type Parser struct {
 	scopes        map[string]*Scope
 	symbols       map[string]Symbol
 	fragmenttrack []string
+	modulename    string
 }
 
 type ImportEnv interface {
@@ -20,8 +25,15 @@ type ImportEnv interface {
 	File(name string) (map[string]Symbol, *Scope, error)
 }
 
+type ScopeCtx uint
+
+const (
+	Global   ScopeCtx = 0
+	Function ScopeCtx = 1
+)
+
 func NewParser(env ImportEnv) *Parser {
-	p := &Parser{env, env.Scope(), make(map[string]*Scope), make(map[string]Symbol), make([]string, 0)}
+	p := &Parser{env, env.Scope(), make(map[string]*Scope), make(map[string]Symbol), make([]string, 0), ""}
 	p.addSymbols(env.Symbols())
 	injectBuiltinOperators(p.rootscope.OpSymbols)
 	return p
@@ -52,12 +64,19 @@ func (p *Parser) addSymbols(symbols map[string]Symbol) {
 }
 
 func (p *Parser) addInstruction(instruction Instruction) int {
-	p.symbols[p.activeFragment()].Append(instruction)
+	s := p.symbols[p.activeFragment()]
+	s.Append(instruction)
+	p.symbols[p.activeFragment()] = s
 	return len(p.symbols[p.activeFragment()].Source) - 1
 }
 
-func (p *Parser) getInstruction(fr string, idx int) *Instruction {
-	return &p.symbols[fr].Source[idx]
+func (p *Parser) addInstructions(instructions []Instruction) int {
+	s := p.symbols[p.activeFragment()]
+	for _, i := range instructions {
+		s.Append(i)
+	}
+	p.symbols[p.activeFragment()] = s
+	return len(p.symbols[p.activeFragment()].Source) - len(instructions)
 }
 
 func (p *Parser) fragmentSize() int {
@@ -82,6 +101,9 @@ func (p *Parser) back() {
 }
 
 func (p *Parser) currentScope() *Scope {
+	if len(p.fragmenttrack) == 0 {
+		return p.rootscope
+	}
 	return p.scopes[p.activeFragment()]
 }
 
@@ -97,8 +119,17 @@ func (p *Parser) closeScope() {
 	p.scopes[p.activeFragment()] = p.scopes[p.activeFragment()].Close()
 }
 
-func (p *Parser) GenerateCode(blocks []Block) (map[string]Symbol, error) {
-	p.open("main")
+func (p *Parser) GenerateCode(blocks []Block, modulename string) (map[string]Symbol, error) {
+	p.modulename = modulename
 	e := p.parseBlocks(blocks, Global)
+	if e != nil {
+		return nil, e
+	}
+	_, e = p.generateFunctionFromTemplate("main", false, []OBJType{VecOf(Str)})
 	return p.symbols, e
+}
+
+func generateUUID(name string) string {
+	bt := md5.Sum([]byte(time.Now().String()))
+	return name + hex.EncodeToString(bt[:])
 }

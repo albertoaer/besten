@@ -1,11 +1,9 @@
 package parser
 
 import (
-	"crypto/md5"
-	"encoding/hex"
 	"errors"
 	"fmt"
-	"time"
+	"strconv"
 
 	"github.com/Besten/internal/runtime"
 )
@@ -74,6 +72,16 @@ func (p *Parser) generateFunctionTemplate(name string, operator bool, template F
 	return nil
 }
 
+var lambdaCount uint = 0
+
+func (p *Parser) solveLambdaTemplate(template FunctionTemplate) string {
+	name := "lambda" + strconv.Itoa(int(lambdaCount))
+	lambdaCount++
+	p.currentScope().FunctionTemplates[HeaderAlias{name, len(template.Args)}] = template
+	p.currentScope().FunctionSymbols[HeaderAlias{name, len(template.Args)}] = make([]FunctionSymbol, 0)
+	return name
+}
+
 //Remember: This function does not check if there is another function with that types
 func (p *Parser) generateFunctionFromTemplate(name string, operator bool, callers []OBJType) (sym FunctionSymbol, err error) {
 	var template FunctionTemplate
@@ -91,8 +99,12 @@ func (p *Parser) generateFunctionFromTemplate(name string, operator bool, caller
 		err = errors.New(fmt.Sprintf("There is no %s for the requested arguments", name))
 		return
 	}
-	compilename := generateUUID(name)
+	compilename := generateUUID(name) + p.modulename
 	p.open(compilename)
+	for i := range template.Args {
+		//Stack, invert order
+		p.addInstruction(runtime.MKInstruction(runtime.SET, template.Args[len(template.Args)-i-1]))
+	}
 	err = p.parseBlocks(template.Children, Function)
 	if err != nil {
 		return
@@ -100,12 +112,7 @@ func (p *Parser) generateFunctionFromTemplate(name string, operator bool, caller
 	p.addInstruction(runtime.MKInstruction(runtime.RET))
 	p.back()
 
-	sym = FunctionSymbol{Call: runtime.MKInstruction(runtime.CLL, compilename), Return: p.rootscope.ReturnType, Args: callers}
+	sym = FunctionSymbol{CName: compilename, Call: runtime.MKInstruction(runtime.CLL, compilename), Return: p.rootscope.ReturnType, Args: callers}
 
 	return
-}
-
-func generateUUID(name string) string {
-	bt := md5.Sum([]byte(time.Now().String()))
-	return name + hex.EncodeToString(bt[:])
 }
