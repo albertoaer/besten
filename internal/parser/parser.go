@@ -9,9 +9,12 @@ import (
 )
 
 type Parser struct {
-	env           ImportEnv
-	rootscope     *Scope
-	scopes        map[string]*Scope
+	env       ImportEnv
+	rootscope *Scope
+	scopes    map[string]struct {
+		origin  *Scope
+		current *Scope
+	}
 	symbols       map[string]Symbol
 	fragmenttrack []string
 	modulename    string
@@ -32,7 +35,10 @@ const (
 )
 
 func NewParser(env ImportEnv) *Parser {
-	p := &Parser{env, env.Scope(), make(map[string]*Scope), make(map[string]Symbol), make([]string, 0), ""}
+	p := &Parser{env, env.Scope(), make(map[string]struct {
+		origin  *Scope
+		current *Scope
+	}), make(map[string]Symbol), make([]string, 0), ""}
 	p.addSymbols(env.Symbols())
 	injectBuiltinFunctions(p.rootscope.Functions)
 	injectBuiltinOperators(p.rootscope.Operators)
@@ -104,7 +110,11 @@ func (p *Parser) openFragmentFor(name string, args int, varargs bool) {
 		}{args, varargs}}
 	}
 	if _, v := p.scopes[name]; !v {
-		p.scopes[name] = p.makeScope()
+		scope := p.makeScope()
+		p.scopes[name] = struct {
+			origin  *Scope
+			current *Scope
+		}{scope, scope}
 	}
 	p.fragmenttrack = append(p.fragmenttrack, name)
 }
@@ -120,7 +130,14 @@ func (p *Parser) currentScope() *Scope {
 	if len(p.fragmenttrack) == 0 {
 		return p.rootscope
 	}
-	return p.scopes[p.activeFragment()]
+	return p.scopes[p.activeFragment()].current
+}
+
+func (p *Parser) currentScopeOrigin() *Scope {
+	if len(p.fragmenttrack) == 0 {
+		return p.rootscope
+	}
+	return p.scopes[p.activeFragment()].origin
 }
 
 func (p *Parser) rootScope() *Scope {
@@ -128,11 +145,15 @@ func (p *Parser) rootScope() *Scope {
 }
 
 func (p *Parser) openScope() {
-	p.scopes[p.activeFragment()] = p.scopes[p.activeFragment()].Open(false)
+	item := p.scopes[p.activeFragment()]
+	item.current = item.current.Open(false)
+	p.scopes[p.activeFragment()] = item
 }
 
 func (p *Parser) closeScope() (err error) {
-	p.scopes[p.activeFragment()], err = p.scopes[p.activeFragment()].Close()
+	item := p.scopes[p.activeFragment()]
+	item.current, err = item.current.Close()
+	p.scopes[p.activeFragment()] = item
 	return
 }
 

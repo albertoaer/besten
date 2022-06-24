@@ -124,46 +124,60 @@ type Variable struct {
 	Dependency *Scope
 }
 
-type BlockFlags struct {
+type ifFlags struct {
 	altered    bool
 	afterif    bool
 	lastifhead struct{ idx, offset int }
 	allifskips []struct{ idx, offset int }
 }
 
-func CreateFlags() *BlockFlags {
-	return &BlockFlags{false, false, struct{ idx, offset int }{-1, -1}, make([]struct{ idx, offset int }, 0)}
+type returnLnFlag struct {
+	altered  bool
+	isreturn bool
 }
 
-func (bf *BlockFlags) Edit(nbf BlockFlags) {
+func createIfFlags() *ifFlags {
+	return &ifFlags{false, false, struct{ idx, offset int }{-1, -1}, make([]struct{ idx, offset int }, 0)}
+}
+
+func createReturnLnFlag() *returnLnFlag {
+	return &returnLnFlag{false, false}
+}
+
+func (bf *ifFlags) Edit(nbf ifFlags) {
 	*bf = nbf
 	bf.altered = true
 }
 
-func (bf *BlockFlags) submitIf(head, skip int) {
+func (bf *ifFlags) submitIf(head, skip int) {
 	bf.afterif = true
 	bf.lastifhead = struct{ idx, offset int }{head, skip}
 	bf.altered = true
 }
 
-func (bf *BlockFlags) submitIfSkip(idx int) {
+func (bf *ifFlags) submitIfSkip(idx int) {
 	bf.allifskips = append(bf.allifskips, struct{ idx, offset int }{idx, 0})
 }
 
-func (bf *BlockFlags) Reset() {
-	*bf = *CreateFlags()
+func (bf *ifFlags) Reset() {
+	*bf = *createIfFlags()
+}
+
+func (bf *returnLnFlag) Reset() {
+	*bf = *createReturnLnFlag()
 }
 
 type Scope struct {
-	Variables  map[string]*Variable
-	Functions  *FunctionCollection
-	Operators  *FunctionCollection
-	blockflags *BlockFlags
-	ReturnType *OBJType
-	Returned   *bool
-	parent     *Scope
-	varcount   *uint
-	argcount   *uint
+	Variables    map[string]*Variable
+	Functions    *FunctionCollection
+	Operators    *FunctionCollection
+	ifFlags      *ifFlags
+	returnLnFlag *returnLnFlag
+	ReturnType   *OBJType
+	Returned     *bool
+	parent       *Scope
+	varcount     *uint
+	argcount     *uint
 }
 
 func (s *Scope) CreateVariable(name string, t OBJType, mutable bool, arg bool) {
@@ -223,10 +237,11 @@ func NewScope() *Scope {
 	r := false
 	var vc, ac uint = 0, 0
 	return &Scope{Variables: make(map[string]*Variable),
-		Functions:  NewFunctionCollection(),
-		Operators:  NewFunctionCollection(),
-		blockflags: CreateFlags(),
-		ReturnType: &rptr, Returned: &r, parent: nil, varcount: &vc, argcount: &ac}
+		Functions:    NewFunctionCollection(),
+		Operators:    NewFunctionCollection(),
+		ifFlags:      createIfFlags(),
+		returnLnFlag: createReturnLnFlag(),
+		ReturnType:   &rptr, Returned: &r, parent: nil, varcount: &vc, argcount: &ac}
 }
 
 func (s *Scope) Open(fnscope bool) *Scope {
@@ -242,10 +257,11 @@ func (s *Scope) Open(fnscope bool) *Scope {
 		vc, ac = &vcv, &acv
 	}
 	ns := &Scope{Variables: make(map[string]*Variable),
-		Functions:  s.Functions.Fork(),
-		Operators:  s.Operators.Fork(),
-		blockflags: CreateFlags(),
-		ReturnType: returnt, Returned: returned, parent: s, varcount: vc, argcount: ac}
+		Functions:    s.Functions.Fork(),
+		Operators:    s.Operators.Fork(),
+		ifFlags:      createIfFlags(),
+		returnLnFlag: createReturnLnFlag(),
+		ReturnType:   returnt, Returned: returned, parent: s, varcount: vc, argcount: ac}
 	for k, v := range s.Variables {
 		ns.Variables[k] = v
 	}

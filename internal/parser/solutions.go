@@ -119,11 +119,15 @@ func (p *Parser) generateFunctionFromRawTemplate(name string, operator bool, cal
 	if err != nil {
 		return
 	}
+	if !p.currentScopeOrigin().returnLnFlag.isreturn {
+		if (*p.currentScope().ReturnType).Primitive() != VOID {
+			err = errors.New("Expecting return of type: " + Repr(*p.currentScope().ReturnType))
+			return
+		}
+		p.addInstruction(runtime.MKInstruction(runtime.RET))
+	}
 	if err = p.currentScope().CheckClose(); err != nil {
 		return
-	}
-	if p.getInstruction(p.fragmentSize()-1).Code != runtime.RET {
-		p.addInstruction(runtime.MKInstruction(runtime.RET))
 	}
 	p.backToFragment()
 	return
