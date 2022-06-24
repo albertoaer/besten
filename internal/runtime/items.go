@@ -111,7 +111,7 @@ func (env *Environment) SetEnvironment(idx int, value Object) {
 }
 
 type Locals struct {
-	locals [20]Object
+	locals [32]Object
 }
 
 func (lcs *Locals) Clear() {

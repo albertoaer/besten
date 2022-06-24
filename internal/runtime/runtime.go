@@ -74,6 +74,9 @@ func NewCallStack(size int) *CallStack {
 }
 
 func (stack *CallStack) GetAvailableItems() (*Environment, *Locals) {
+	if stack.idx >= len(stack.elements) {
+		panic("Unexpected situation, call stack overflow")
+	}
 	return &stack.elements[stack.idx].env, &stack.elements[stack.idx].locals
 }
 
@@ -107,6 +110,9 @@ func (stack *CallStack) Pop() {
 }
 
 func (stack *CallStack) Top() *CallStackElement {
+	if stack.idx >= len(stack.elements) {
+		panic("Unexpected situation, call stack overflow")
+	}
 	if stack.idx == 0 {
 		return nil
 	}
