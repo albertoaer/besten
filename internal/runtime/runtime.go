@@ -31,7 +31,7 @@ type Symbol struct {
 	Source Fragment //fragment
 }
 
-func (s Symbol) Append(i Instruction) {
+func (s *Symbol) Append(i Instruction) {
 	s.Source = append(s.Source, i)
 }
 

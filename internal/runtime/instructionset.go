@@ -287,6 +287,6 @@ func init() {
 
 	//Interaction
 	operations[INV] = Operation{func(proc *Process, l ...Object) {
-		//TODO: Treat first argument as operation l[0].(Operation)
+		proc.Invoke(l[0].(string))
 	}, 1}
 }
