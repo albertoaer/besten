@@ -65,11 +65,29 @@ func NewCallStack(size int) *CallStack {
 	return &CallStack{make([]CallStackElement, size), 0}
 }
 
-func (stack *CallStack) Insert(pc int, symbol *Symbol, env Environment, locals Locals) {
+func (stack *CallStack) GetAvailableItems() (*Environment, *Locals) {
+	return &stack.elements[stack.idx].env, &stack.elements[stack.idx].locals
+}
+
+func (stack *CallStack) Insert(pc int, symbol *Symbol) {
 	if stack.idx >= len(stack.elements) {
 		panic("Unexpected situation, call stack overflow")
 	}
-	stack.elements[stack.idx] = CallStackElement{pc, symbol, env, locals}
+	c := &stack.elements[stack.idx]
+	c.pc = pc
+	c.symbol = symbol
+	stack.idx++
+}
+
+func (stack *CallStack) InsertCopy(pc int, symbol *Symbol, env Environment, locals Locals) {
+	if stack.idx >= len(stack.elements) {
+		panic("Unexpected situation, call stack overflow")
+	}
+	c := &stack.elements[stack.idx]
+	c.pc = pc
+	c.symbol = symbol
+	c.env = env
+	c.locals = locals
 	stack.idx++
 }
 
@@ -80,7 +98,7 @@ func (stack *CallStack) Pop() {
 	stack.idx--
 }
 
-func (stack *CallStack) Current() *CallStackElement {
+func (stack *CallStack) Top() *CallStackElement {
 	if stack.idx == 0 {
 		return nil
 	}

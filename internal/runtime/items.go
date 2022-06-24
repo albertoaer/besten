@@ -70,22 +70,50 @@ func EnvironmentForCall(fs *FunctionStack, variables int, varargs bool) (Environ
 	return items, nil
 }
 
-func (proc *Environment) GetEnvironment(idx int) Object {
-	return proc.args[idx]
+func (env *Environment) ForCall(fs *FunctionStack, variables int, varargs bool) error {
+	extra := 0
+	var varargsvec VecT
+	for i := 0; i < variables+extra; i++ {
+		o := fs.Pop()
+		if i == variables-1 && varargs {
+			i, e := o.(int)
+			if !e {
+				return errors.New("Expecting number of arguments")
+			}
+			extra = i
+			varargsvec = MakeVec()
+			env.args[i] = varargsvec
+		} else if i > variables-1 && varargs {
+			*varargsvec = append(*varargsvec, o)
+		} else {
+			env.args[i] = o
+		}
+	}
+	return nil
 }
 
-func (proc *Environment) SetEnvironment(idx int, value Object) {
-	proc.args[idx] = value
+func (env *Environment) GetEnvironment(idx int) Object {
+	return env.args[idx]
+}
+
+func (env *Environment) SetEnvironment(idx int, value Object) {
+	env.args[idx] = value
 }
 
 type Locals struct {
-	locals [8]Object
+	locals [20]Object
 }
 
-func (proc *Locals) GetLocal(idx int) Object {
-	return proc.locals[idx]
+func (lcs *Locals) Clear() {
+	for x := range lcs.locals {
+		lcs.locals[x] = nil
+	}
 }
 
-func (proc *Locals) SetLocal(idx int, value Object) {
-	proc.locals[idx] = value
+func (lcs *Locals) GetLocal(idx int) Object {
+	return lcs.locals[idx]
+}
+
+func (lcs *Locals) SetLocal(idx int, value Object) {
+	lcs.locals[idx] = value
 }

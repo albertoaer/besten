@@ -21,8 +21,8 @@ type Process struct {
 	functionstack *FunctionStack //Function stack
 	done          chan error     //Is Process done?
 	callstack     *CallStack
-	env           Environment
-	locals        Locals
+	env           *Environment
+	locals        *Locals
 	workingObject Object //Manipulable object
 }
 
@@ -40,12 +40,13 @@ func (vm *VM) spawn(parent PID, fr string, stack *FunctionStack) (PID, error) {
 	if !ex {
 		return nil, errors.New(fmt.Sprintf("Symbol %s not found", fr))
 	}
-	i, err := EnvironmentForCall(stack, sym.BuiltInfo.Args, sym.BuiltInfo.Varargs)
-	if err != nil {
+	callstack := NewCallStack(20000)
+	env, locals := callstack.GetAvailableItems()
+	if err := env.ForCall(stack, sym.BuiltInfo.Args, sym.BuiltInfo.Varargs); err != nil {
 		return nil, err
 	}
 	process := &Process{vm, parent, nil, 0, sym, stack,
-		make(chan error), NewCallStack(10000), i, Locals{}, nil}
+		make(chan error), callstack, env, locals, nil}
 	go process.run()
 	return process, nil
 }
@@ -114,7 +115,7 @@ func (proc *Process) Spawn(fr string) PID {
 }
 
 func (proc *Process) ReturnLastPoint() {
-	point := proc.callstack.Current()
+	point := proc.callstack.Top()
 	if point == nil {
 		/*
 			If not element at the stack
@@ -125,22 +126,20 @@ func (proc *Process) ReturnLastPoint() {
 		proc.callstack.Pop()
 		proc.symbol = point.symbol
 		proc.pc = point.pc
-		proc.env = point.env
-		proc.locals = point.locals
+		proc.env = &point.env
+		proc.locals = &point.locals
 	}
 }
 
 func (proc *Process) CallFragment(name string) {
-	proc.callstack.Insert(proc.pc, proc.symbol, proc.env, proc.locals)
+	proc.callstack.Insert(proc.pc, proc.symbol)
 	if proc.symbol.Name != name {
 		proc.symbol = proc.machine.symbols[name]
 	}
-	env, err := EnvironmentForCall(proc.functionstack, proc.symbol.BuiltInfo.Args, proc.symbol.BuiltInfo.Varargs)
-	if err != nil {
+	proc.env, proc.locals = proc.callstack.GetAvailableItems()
+	if err := proc.env.ForCall(proc.functionstack, proc.symbol.BuiltInfo.Args, proc.symbol.BuiltInfo.Varargs); err != nil {
 		panic(err)
 	}
-	proc.env = env
-	//Locals will be overwritten
 	proc.pc = 0
 }
 
@@ -148,11 +147,9 @@ func (proc *Process) JumpToFragment(name string) {
 	if proc.symbol.Name != name {
 		proc.symbol = proc.machine.symbols[name]
 	}
-	env, err := EnvironmentForCall(proc.functionstack, proc.symbol.BuiltInfo.Args, proc.symbol.BuiltInfo.Varargs)
-	if err != nil {
+	if err := proc.env.ForCall(proc.functionstack, proc.symbol.BuiltInfo.Args, proc.symbol.BuiltInfo.Varargs); err != nil {
 		panic(err)
 	}
-	proc.env = env
 	proc.pc = 0
 }
 
@@ -213,10 +210,10 @@ func (proc *Process) run() {
 		if fn.Action == nil {
 			panic(errors.New(fmt.Sprintf("No operation fetched for opcode: %d", ins.Code)))
 		} else {
-			switch fn.Operands - ins.sz {
-			case 1:
+			count := fn.Operands - ins.sz
+			if count == 1 {
 				ins.operands[ins.sz] = proc.functionstack.Pop()
-			case 2:
+			} else if count == 2 {
 				ins.operands[0] = proc.functionstack.Pop()
 				ins.operands[1] = proc.functionstack.Pop()
 			}
