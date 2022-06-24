@@ -154,6 +154,7 @@ func injectBuiltinFunctions(to *FunctionCollection) {
 		}
 		return nil
 	})
+	to.AddSymbol("end", &FunctionSymbol{"none", false, MKInstruction(PSH, 0).Fragment(), CloneType(Bool), []OBJType{Any}})
 }
 
 func injectBuiltinOperators(to *FunctionCollection) {
