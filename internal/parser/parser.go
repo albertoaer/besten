@@ -124,7 +124,10 @@ func (p *Parser) ParseCode(blocks []Block, modulename string) error {
 
 func (p *Parser) GenerateFunction(name string) (string, error) {
 	sym, e := p.generateFunctionFromTemplate(name, false, []OBJType{VecOf(Str)})
-	return sym.CName, e
+	if e != nil {
+		return "", e
+	}
+	return sym.CName, nil
 }
 
 func (p *Parser) GetSymbols() map[string]Symbol {
