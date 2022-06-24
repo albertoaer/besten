@@ -53,6 +53,11 @@ type OBJType interface {
 	NamedItems() map[string]OBJType //For structures with fixed fields
 }
 
+func CloneType(o OBJType) *OBJType {
+	newtp := o
+	return &newtp
+}
+
 func CompareArrayOfTypes(a, b []OBJType) bool {
 	if len(a) != len(b) {
 		return false

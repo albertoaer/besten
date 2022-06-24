@@ -8,8 +8,8 @@ import (
 )
 
 func mathOpInstruction(int_, float_ ICode) []*FunctionSymbol {
-	return []*FunctionSymbol{{"none", false, MKInstruction(int_), &Int, []OBJType{Int, Int}},
-		{"none", false, MKInstruction(float_), &Dec, []OBJType{Dec, Dec}}}
+	return []*FunctionSymbol{{"none", false, MKInstruction(int_).Fragment(), &Int, []OBJType{Int, Int}},
+		{"none", false, MKInstruction(float_).Fragment(), &Dec, []OBJType{Dec, Dec}}}
 }
 
 func multiTypeInstruction(length int, returntype OBJType, matches map[OBJType]ICode) []*FunctionSymbol {
@@ -22,7 +22,7 @@ func multiTypeInstruction(length int, returntype OBJType, matches map[OBJType]IC
 		ret = append(ret, &FunctionSymbol{
 			"none",
 			false,
-			MKInstruction(v),
+			MKInstruction(v).Fragment(),
 			&returntype,
 			tp,
 		})
@@ -35,7 +35,7 @@ func wrapOpInstruction(code ICode, tp OBJType, unary bool) []*FunctionSymbol {
 	if unary {
 		tps = []OBJType{tp}
 	}
-	return []*FunctionSymbol{{"none", false, MKInstruction(code), &tp, tps}}
+	return []*FunctionSymbol{{"none", false, MKInstruction(code).Fragment(), &tp, tps}}
 }
 
 func injectBuiltinFunctions(to *FunctionCollection) {
@@ -47,7 +47,7 @@ func injectBuiltinFunctions(to *FunctionCollection) {
 			return nil
 		},
 		Returns: false,
-	}), &Void, []OBJType{Any}})
+	}).Fragment(), &Void, []OBJType{Any}})
 	to.AddSymbols("str", multiTypeInstruction(1, Str, map[OBJType]ICode{Str: NOP, Int: IRE, Dec: DRE}))
 }
 
@@ -71,6 +71,27 @@ func injectBuiltinOperators(to *FunctionCollection) {
 	to.AddSymbols(">", multiTypeInstruction(2, Bool, map[OBJType]ICode{Int: IGR, Dec: DGR}))
 	to.AddSymbols("<=", multiTypeInstruction(2, Bool, map[OBJType]ICode{Int: ILQ, Dec: DLQ}))
 	to.AddSymbols(">=", multiTypeInstruction(2, Bool, map[OBJType]ICode{Int: IGQ, Dec: DGQ}))
+	to.AddDynamicSymbol("[]", func(o []OBJType) *FunctionSymbol {
+		//Can be implemented by symbol switch but is useful to be this way in order to future custom type generation
+		if len(o) == 2 {
+			var ins []Instruction
+			var ret *OBJType
+			if o[0].Primitive() == VECTOR && o[1].Primitive() == INTEGER {
+				ins = []Instruction{MKInstruction(PTW), MKInstruction(ACC)}
+				ret = CloneType(o[0].Items())
+			} else if o[0].Primitive() == MAP && o[1].Primitive() == STRING {
+				ins = []Instruction{MKInstruction(ATT), MKInstruction(ACC)}
+				ret = CloneType(o[0].Items())
+			} else if o[0].Primitive() == STRING && o[1].Primitive() == INTEGER {
+				ins = MKInstruction(CAI).Fragment()
+				ret = CloneType(Int)
+			} else {
+				return nil
+			}
+			return &FunctionSymbol{"none", false, ins, ret, o}
+		}
+		return nil
+	})
 }
 
 type Variable struct {

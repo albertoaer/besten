@@ -9,7 +9,7 @@ import (
 	"github.com/Besten/internal/runtime"
 )
 
-func (p *Parser) solveFunctionCall(name string, operator bool, callers []OBJType) (ins runtime.Instruction, ret OBJType, err error) {
+func (p *Parser) solveFunctionCall(name string, operator bool, callers []OBJType) (ins []runtime.Instruction, ret OBJType, err error) {
 	if operator && (len(callers) > 2 || len(callers) < 1) {
 		err = errors.New(fmt.Sprintf("Operators cannot have %d arguments", len(callers)))
 		return
@@ -30,8 +30,14 @@ func (p *Parser) findFunction(name string, operator bool, callers []OBJType) (sy
 	exists = false
 	var vec []*FunctionSymbol
 	if operator {
+		if s := p.currentScope().Operators.GenerateDynamicSymbol(name, callers); s != nil {
+			return s, true
+		}
 		vec = p.currentScope().Operators.FindSymbol(name, len(callers))
 	} else {
+		if s := p.currentScope().Functions.GenerateDynamicSymbol(name, callers); s != nil {
+			return s, true
+		}
 		vec = p.currentScope().Functions.FindSymbol(name, len(callers))
 	}
 	if vec == nil {
@@ -94,7 +100,7 @@ func (p *Parser) generateFunctionFromTemplate(name string, operator bool, caller
 	/*
 		Create function reference before function in order to avoid posible infinite dependency loops
 	*/
-	sym = &FunctionSymbol{CName: compilename, Call: runtime.MKInstruction(runtime.CLL, compilename), Return: p.currentScope().ReturnType, Args: callers}
+	sym = &FunctionSymbol{CName: compilename, Call: runtime.MKInstruction(runtime.CLL, compilename).Fragment(), Return: p.currentScope().ReturnType, Args: callers}
 	if operator {
 		p.currentScope().Operators.AddSymbol(name, sym)
 	} else {

@@ -30,6 +30,10 @@ func MKInstruction(code ICode, operands ...Object) Instruction {
 	return Instruction{code, opr, len(operands)}
 }
 
+func (i Instruction) Fragment() []Instruction {
+	return []Instruction{i}
+}
+
 type Fragment []Instruction
 
 type Symbol struct {

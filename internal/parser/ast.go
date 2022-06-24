@@ -183,7 +183,7 @@ func (s *syntaxCall) runIntoStack(p *Parser, stack *[]Instruction) (OBJType, err
 		}
 	}
 	ins, ret, err := p.solveFunctionCall(s.relation.route[0], false, ops)
-	*stack = append(*stack, ins)
+	*stack = append(*stack, ins...)
 	return ret, err
 }
 
@@ -205,7 +205,7 @@ func (s *syntaxOpCall) runIntoStack(p *Parser, stack *[]Instruction) (OBJType, e
 		}
 	}
 	ins, ret, err := p.solveFunctionCall(s.operator, true, ops)
-	*stack = append(*stack, ins)
+	*stack = append(*stack, ins...)
 	return ret, err
 }
 
@@ -247,10 +247,10 @@ func (s *syntaxHighLevelCall) runIntoStack(p *Parser, stack *[]Instruction) (OBJ
 		}
 	}
 	ins, ret, err := p.solveFunctionCall(s.relation.route[0], false, ops)
-	if s.owner.inReturn && ins.Code == CLL {
-		ins.Code = JMP
+	if s.owner.inReturn && ins[len(ins)-1].Code == CLL {
+		ins[len(ins)-1].Code = JMP
 	}
-	*stack = append(*stack, ins)
+	*stack = append(*stack, ins...)
 	return ret, err
 }
 

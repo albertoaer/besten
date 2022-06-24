@@ -286,7 +286,7 @@ func init() {
 		proc.functionstack.Push(l[0].(string) + l[1].(string))
 	}, 2}
 	operations[CAI] = Operation{func(proc *Process, l [2]Object) {
-		proc.functionstack.Push(l[0].(string)[l[1].(int)])
+		proc.functionstack.Push(int(l[0].(string)[l[1].(int)]))
 	}, 2}
 
 	//MEMORY

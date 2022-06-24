@@ -17,10 +17,12 @@ type FunctionTemplate struct {
 type FunctionSymbol struct {
 	CName   string
 	Varargs bool
-	Call    Instruction
+	Call    []Instruction
 	Return  *OBJType
 	Args    []OBJType
 }
+
+type DynamicFunctionSymbol func([]OBJType) *FunctionSymbol
 
 type NamedTemplateContainer struct {
 	fixedargs map[int]FunctionTemplate
@@ -28,6 +30,7 @@ type NamedTemplateContainer struct {
 }
 
 type NamedFunctionContainer struct {
+	dynamic         DynamicFunctionSymbol
 	fixedargs       map[int][]*FunctionSymbol
 	variadic        []*FunctionSymbol
 	minvariadicargs int
@@ -121,7 +124,7 @@ func (collection *FunctionCollection) FindTemplate(name string, args int) *Funct
 //Creates a function container for a name in case it does not exists
 func (collection *FunctionCollection) SaveSymbolHolder(name string) {
 	if _, e := collection.functions[name]; !e {
-		collection.functions[name] = &NamedFunctionContainer{make(map[int][]*FunctionSymbol), make([]*FunctionSymbol, 0), -1}
+		collection.functions[name] = &NamedFunctionContainer{nil, make(map[int][]*FunctionSymbol), make([]*FunctionSymbol, 0), -1}
 	}
 }
 
@@ -129,7 +132,7 @@ func (collection *FunctionCollection) SaveSymbolHolder(name string) {
 func (collection *FunctionCollection) AddSymbol(name string, function *FunctionSymbol) error {
 	v, e := collection.functions[name]
 	if !e {
-		v = &NamedFunctionContainer{make(map[int][]*FunctionSymbol), make([]*FunctionSymbol, 0), -1}
+		v = &NamedFunctionContainer{nil, make(map[int][]*FunctionSymbol), make([]*FunctionSymbol, 0), -1}
 		collection.functions[name] = v
 	}
 	if function.Varargs {
@@ -146,6 +149,19 @@ func (collection *FunctionCollection) AddSymbol(name string, function *FunctionS
 	return nil
 }
 
+func (collection *FunctionCollection) AddDynamicSymbol(name string, dsym DynamicFunctionSymbol) error {
+	v, e := collection.functions[name]
+	if !e {
+		v = &NamedFunctionContainer{dsym, make(map[int][]*FunctionSymbol), make([]*FunctionSymbol, 0), -1}
+		collection.functions[name] = v
+	}
+	if v.dynamic != nil {
+		return errors.New("Dynamic symbol already defined")
+	}
+	v.dynamic = dsym
+	return nil
+}
+
 /*
 Adds an array of non-variadic functions into de collection associated with a name
 NOT VALID FOR NON VARIADIC
@@ -157,13 +173,24 @@ func (collection *FunctionCollection) AddSymbols(name string, functions []*Funct
 	}
 	v, e := collection.functions[name]
 	if !e {
-		v = &NamedFunctionContainer{make(map[int][]*FunctionSymbol), make([]*FunctionSymbol, 0), -1}
+		v = &NamedFunctionContainer{nil, make(map[int][]*FunctionSymbol), make([]*FunctionSymbol, 0), -1}
 		collection.functions[name] = v
 	}
 	fns := v.fixedargs[len(functions[0].Args)]
 	fns = append(fns, functions...)
 	v.fixedargs[len(functions[0].Args)] = fns
 	return nil
+}
+
+func (collection *FunctionCollection) GenerateDynamicSymbol(name string, args []OBJType) *FunctionSymbol {
+	v, e := collection.functions[name]
+	if !e {
+		return nil
+	}
+	if v.dynamic == nil {
+		return nil
+	}
+	return v.dynamic(args)
 }
 
 //If returns null no function was found
