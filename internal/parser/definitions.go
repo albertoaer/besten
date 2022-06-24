@@ -16,6 +16,7 @@ var (
 	WHILE          = Token{Data: "while", Kind: KeywordToken}
 	VAL            = Token{Data: "val", Kind: KeywordToken}
 	VAR            = Token{Data: "var", Kind: KeywordToken}
+	REF            = Token{Data: "ref", Kind: KeywordToken}
 	DOT            = Token{Data: ".", Kind: SpecialToken}
 	INDEXOP        = Token{Data: "[]", Kind: OperatorToken}
 	ASSIGN         = Token{Data: "=", Kind: OperatorToken}

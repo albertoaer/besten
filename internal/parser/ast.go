@@ -86,13 +86,13 @@ type syntaxTupleDefinition struct {
 }
 
 func (s *syntaxTupleDefinition) runIntoStack(p *Parser, stack *[]Instruction) (OBJType, error) {
-	tps := make([]OBJType, 0)
+	tps := make([]OBJType, len(s.elements))
 	for i := range s.elements {
 		t, e := s.elements[len(s.elements)-i-1].runIntoStack(p, stack)
 		if e != nil {
 			return nil, e
 		}
-		tps = append(tps, t)
+		tps[len(s.elements)-i-1] = t
 	}
 	*stack = append(*stack, MKInstruction(CSE, len(s.elements)))
 	return TupleOf(tps), nil
@@ -248,11 +248,11 @@ type syntaxTypeCreation struct {
 }
 
 func (s *syntaxTypeCreation) runIntoStack(p *Parser, stack *[]Instruction) (OBJType, error) {
-	obj, e := solveTypeFromTokens(s.typeref)
+	obj, e := solveContextedTypeFromTokens(s.typeref, p)
 	if e != nil {
 		return nil, e
 	}
-	//TODO: Create the type
+	*stack = append(*stack, obj.Create()...)
 	return obj, nil
 }
 
@@ -509,9 +509,9 @@ func (s *SyntaxTree) identifyExpressionBranch(tks []Token) (syntaxBranch, error)
 		if len(left) == 0 { //Create type
 			preceded = &syntaxTypeCreation{inner, s}
 		} else { //Indexation
-			route, e := getRoute(left)
-			if e != nil {
-				return nil, e
+			route, err := getRoute(left)
+			if err != nil {
+				return nil, err
 			}
 			if len(inner) == 1 && inner[0].Kind == IntegerToken {
 				i, err := strconv.Atoi(inner[0].Data)

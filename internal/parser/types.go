@@ -1,5 +1,7 @@
 package parser
 
+import "github.com/Besten/internal/runtime"
+
 type PrimitiveType uint8
 
 const (
@@ -49,6 +51,7 @@ type OBJType interface {
 	Items() OBJType                 //For containers with unique and unnamed types
 	FixedItems() []OBJType          //For tuple with fixed fields
 	NamedItems() map[string]OBJType //For structures with fixed fields
+	Create() []runtime.Instruction
 }
 
 func CloneType(o OBJType) *OBJType {
@@ -99,17 +102,18 @@ func CompareTypes(a, b OBJType) bool {
 }
 
 type Literal struct {
-	RawType PrimitiveType
-	Name    string
+	RawType    PrimitiveType
+	Name       string
+	DefaultObj runtime.Object
 }
 
 var (
-	Void OBJType = &Literal{VOID, "Void"}
-	Int  OBJType = &Literal{INTEGER, "Int"}
-	Dec  OBJType = &Literal{DECIMAL, "Dec"}
-	Bool OBJType = &Literal{BOOL, "Bool"}
-	Str  OBJType = &Literal{STRING, "Str"}
-	Any  OBJType = &Literal{ANY, "Any"}
+	Void OBJType = &Literal{VOID, "Void", nil}
+	Int  OBJType = &Literal{INTEGER, "Int", 0}
+	Dec  OBJType = &Literal{DECIMAL, "Dec", float64(0.0)}
+	Bool OBJType = &Literal{BOOL, "Bool", true}
+	Str  OBJType = &Literal{STRING, "Str", ""}
+	Any  OBJType = &Literal{ANY, "Any", nil}
 )
 
 func (nc *Literal) TypeName() string {
@@ -132,18 +136,23 @@ func (nc *Literal) NamedItems() map[string]OBJType {
 	return nil
 }
 
+func (nc *Literal) Create() []runtime.Instruction {
+	return runtime.MKInstruction(runtime.PSH, nc.DefaultObj).Fragment()
+}
+
 type Container struct {
-	ContainerType PrimitiveType
-	ItemsType     OBJType
-	Name          string
+	ContainerType     PrimitiveType
+	ItemsType         OBJType
+	Name              string
+	CreateInstruction runtime.ICode
 }
 
 func VecOf(t OBJType) OBJType {
-	return &Container{VECTOR, t, "Vec"}
+	return &Container{VECTOR, t, "Vec", runtime.VEC}
 }
 
 func MapOf(t OBJType) OBJType {
-	return &Container{MAP, t, "Map"}
+	return &Container{MAP, t, "Map", runtime.KVC}
 }
 
 func (nc *Container) TypeName() string {
@@ -164,6 +173,10 @@ func (nc *Container) FixedItems() []OBJType {
 
 func (nc *Container) NamedItems() map[string]OBJType {
 	return nil
+}
+
+func (nc *Container) Create() []runtime.Instruction {
+	return runtime.MKInstruction(nc.CreateInstruction).Fragment()
 }
 
 type Tuple struct {
@@ -194,7 +207,15 @@ func (nc *Tuple) NamedItems() map[string]OBJType {
 	return nil
 }
 
-type Structure struct {
+func (nc *Tuple) Create() []runtime.Instruction {
+	data := make([]runtime.Instruction, 0)
+	for _, v := range nc.ItemTypes {
+		data = append(data, v.Create()...)
+	}
+	return append(data, runtime.MKInstruction(runtime.CSE, len(nc.ItemTypes)))
+}
+
+/*type Structure struct {
 	ItemsType map[string]OBJType
 	Name      string
 }
@@ -221,4 +242,4 @@ func (nc *Structure) FixedItems() []OBJType {
 
 func (nc *Structure) NamedItems() map[string]OBJType {
 	return nc.ItemsType
-}
+}*/
