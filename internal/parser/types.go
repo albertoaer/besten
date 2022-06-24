@@ -92,13 +92,13 @@ func CompareTypes(a, b OBJType) bool {
 	if a.Primitive() == ALIAS || b.Primitive() == ALIAS {
 		return a.TypeName() == b.TypeName()
 	}
-	if a.Primitive() == FUNCTION || b.Primitive() == FUNCTION {
+	if a.Primitive() != b.Primitive() {
+		return false
+	}
+	if a.Primitive() == FUNCTION {
 		at := (a.(*FunctionType))
 		bt := (b.(*FunctionType))
 		return CompareArrayOfTypes(at.args, bt.args) && CompareTypes(at.ret, bt.ret)
-	}
-	if a.Primitive() != b.Primitive() {
-		return false
 	}
 	switch a.Primitive() {
 	case VECTOR, MAP, VARIADIC:
