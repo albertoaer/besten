@@ -13,29 +13,34 @@ import (
 	"github.com/Besten/internal/runtime"
 )
 
-func itable(path string, begin int) map[int]string {
+func itable(path string) map[int]string {
 	b, e := ioutil.ReadFile(path)
 	if e != nil {
 		panic(e)
 	}
 	result := make(map[int]string)
 	lines := strings.Split(string(b), "\n")
-	for i := begin; i < len(lines); i++ {
-		n := strings.Split(lines[i], "/")
-		if len(n) > 0 {
-			target := strings.TrimSpace(n[0])
-			if target == ")" {
-				break
-			}
-			if len(target) > 0 && target[0] != '/' {
-				parts := strings.Split(target, "=")
-				ids := strings.Split(parts[0], " ")
-				icode, e := strconv.Atoi(strings.TrimSpace(parts[1]))
-				if e != nil {
-					panic(e)
+	flag := false
+	for i := 0; i < len(lines); i++ {
+		if flag {
+			n := strings.Split(lines[i], "/")
+			if len(n) > 0 {
+				target := strings.TrimSpace(n[0])
+				if target == ")" {
+					break
 				}
-				result[icode] = ids[0]
+				if len(target) > 0 && target[0] != '/' {
+					parts := strings.Split(target, "=")
+					ids := strings.Split(parts[0], " ")
+					icode, e := strconv.Atoi(strings.TrimSpace(parts[1]))
+					if e != nil {
+						panic(e)
+					}
+					result[icode] = ids[0]
+				}
 			}
+		} else if strings.TrimSpace(lines[i]) == "const (" {
+			flag = true
 		}
 	}
 	return result
@@ -58,7 +63,7 @@ func main() {
 			fmt.Println("Error while dumping: \n\t", e)
 		}
 	}()
-	table := itable("./internal/runtime/instructionset.go", 10)
+	table := itable("./internal/runtime/instructionset.go")
 	var file string
 	var name string
 	flag.StringVar(&file, "file", "", "File to be compiled")
