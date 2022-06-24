@@ -104,7 +104,9 @@ func (collection *FunctionCollection) AddTemplate(name string, template Function
 			v.fixedargs[len(template.Args)] = template
 		}
 	}
-	collection.SaveSymbolHolder(name)
+	if _, e := collection.functions[name]; !e {
+		collection.functions[name] = &NamedFunctionContainer{nil, make(map[int][]*FunctionSymbol), make([]*FunctionSymbol, 0), -1}
+	}
 	return nil
 }
 
@@ -167,13 +169,6 @@ func (collection *FunctionCollection) CopyTemplate(name string, args int, nname 
 		}
 	}
 	return nil
-}
-
-//Creates a function container for a name in case it does not exists
-func (collection *FunctionCollection) SaveSymbolHolder(name string) {
-	if _, e := collection.functions[name]; !e {
-		collection.functions[name] = &NamedFunctionContainer{nil, make(map[int][]*FunctionSymbol), make([]*FunctionSymbol, 0), -1}
-	}
 }
 
 //Adds variadic and non-variadic functions into de collection associated with a name
