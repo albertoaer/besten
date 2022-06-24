@@ -23,7 +23,7 @@ func (p *Parser) parseImport(block Block) error {
 		if nextT(tks, IdToken) {
 			p.rootscope.ImportedModules[tks[0].Data] = mod
 			tks = discardOne(tks)
-		} else if next(tks, direct) {
+		} else if next(tks, DIRECT) {
 			scope, e := mod.TryGetScope()
 			if e != nil {
 				return e

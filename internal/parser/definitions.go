@@ -5,8 +5,7 @@ import (
 )
 
 var (
-	REQUIRE  Token = Token{Data: "require", Kind: KeywordToken}
-	IMPORT         = Token{Data: "import", Kind: KeywordToken}
+	IMPORT   Token = Token{Data: "import", Kind: KeywordToken}
 	STRUCTK        = Token{Data: "struct", Kind: KeywordToken}
 	FN             = Token{Data: "fn", Kind: KeywordToken}
 	OP             = Token{Data: "op", Kind: KeywordToken}
@@ -19,7 +18,7 @@ var (
 	VAR            = Token{Data: "var", Kind: KeywordToken}
 	REF            = Token{Data: "ref", Kind: KeywordToken}
 	SPAWN          = Token{Data: "spawn", Kind: KeywordToken}
-	direct         = Token{Data: "direct", Kind: KeywordToken}
+	DIRECT         = Token{Data: "direct", Kind: KeywordToken}
 	DOT            = Token{Data: ".", Kind: SpecialToken}
 	INDEXOP        = Token{Data: "[]", Kind: OperatorToken}
 	ASSIGN         = Token{Data: "=", Kind: OperatorToken}

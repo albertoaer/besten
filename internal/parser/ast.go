@@ -508,9 +508,6 @@ func (s *SyntaxTree) splitAssignmentExpression(tks []Token, children []Block) (s
 
 func (s *SyntaxTree) generateFirstLevelExpression(tks []Token, children []Block) (syntaxBranch, error) {
 	if len(tks) > 0 {
-		if tks[0] == FOR || tks[0] == WHILE {
-			return nil, errors.New("Generators are not implemented yet")
-		}
 		name, args, spawned, err := splitFirstLevelFunctionCall(tks)
 		if err != nil {
 			return nil, err
