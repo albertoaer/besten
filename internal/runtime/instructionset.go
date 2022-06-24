@@ -119,16 +119,16 @@ const (
 
 	//Interaction
 
-	INV = 280 //Invokes native function
-	SYS = 281 //Invokes a system call
-	IFD = 282 //Invocation for debugging, run directly methods, NOT SAFE!
+	INV = 250 //Invokes native function
+	SYS = 251 //Invokes a system call
+	IFD = 252 //Invocation for debugging, run directly methods, NOT SAFE!
 
-	LDOP = 300 //Last defined operation, just a mark
+	LDOP = 256 //Last defined operation, just a mark
 )
 
 type Operation struct {
 	Action   func(*Process, [2]Object)
-	Operands int
+	Operands uint8
 }
 
 var operations [LDOP]Operation
