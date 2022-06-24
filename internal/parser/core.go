@@ -379,7 +379,6 @@ func (p *Parser) parseWhile(block Block) error {
 }
 
 func (p *Parser) parseFor(block Block) error {
-	//FIXME: For loop
 	tks := discardOne(block.Tokens)
 	tks, r := readUntilToken(tks, DO)
 	sides, e := splitByToken(tks, func(t Token) bool { return t == IN }, []struct {
