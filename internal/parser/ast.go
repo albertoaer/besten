@@ -515,22 +515,21 @@ func (s *SyntaxTree) identifyExpressionBranch(tks []Token) (syntaxBranch, error)
 		var preceded syntaxBranch
 		var e error
 		if len(left) == 0 { //Create type
-			preceded = &syntaxTypeCreation{left, s}
+			preceded = &syntaxTypeCreation{inner, s}
 		} else { //Indexation
 			route, e := getRoute(left)
 			if e != nil {
 				return nil, e
 			}
 			if len(inner) == 1 && inner[0].Kind == IntegerToken {
-				i, r := strconv.Atoi(inner[0].Data)
-				if r != nil {
-					return nil, r
-				}
-				return &syntaxConstantAccess{target: &syntaxRoute{nil, route, s}, idx: i, owner: s}, nil
+				i, err := strconv.Atoi(inner[0].Data)
+				e = err
+				preceded = &syntaxConstantAccess{target: &syntaxRoute{nil, route, s}, idx: i, owner: s}
+			} else {
+				indexer, err := s.generateSecondLevelExpression(inner)
+				e = err
+				preceded = &syntaxOpCall{operator: INDEXOP.Data, operands: []syntaxBranch{&syntaxRoute{nil, route, s}, indexer}}
 			}
-			indexer, err := s.generateSecondLevelExpression(inner)
-			e = err
-			preceded = &syntaxOpCall{operator: INDEXOP.Data, operands: []syntaxBranch{&syntaxRoute{nil, route, s}, indexer}}
 		}
 		if len(right) == 0 || e != nil {
 			return preceded, e
@@ -562,15 +561,14 @@ func (s *SyntaxTree) identifySubrouting(preceded syntaxBranch, nexttks []Token) 
 			branch = &syntaxRoute{preceded, route, s}
 		}
 		if len(inner) == 1 && inner[0].Kind == IntegerToken {
-			i, r := strconv.Atoi(inner[0].Data)
-			if r != nil {
-				return nil, r
-			}
-			return &syntaxConstantAccess{target: branch, idx: i, owner: s}, nil
+			i, err := strconv.Atoi(inner[0].Data)
+			e = err
+			idx = &syntaxConstantAccess{target: branch, idx: i, owner: s}
+		} else {
+			indexer, err := s.generateSecondLevelExpression(inner)
+			e = err
+			idx = &syntaxOpCall{operator: INDEXOP.Data, operands: []syntaxBranch{branch, indexer}, owner: s}
 		}
-		indexer, err := s.generateSecondLevelExpression(inner)
-		e = err
-		idx = &syntaxOpCall{operator: INDEXOP.Data, operands: []syntaxBranch{branch, indexer}, owner: s}
 	}
 	if len(right) == 0 || e != nil {
 		return idx, e
