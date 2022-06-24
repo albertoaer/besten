@@ -112,7 +112,7 @@ func (s *syntaxConstantAccess) runIntoStack(p *Parser, stack *[]Instruction) (OB
 	}
 	if r.Primitive() != TUPLE { //When is not tuple related search for index operator
 		return p.solveFunctionCall(INDEXOP.Data, true, []OBJType{r, Int},
-			[][]Instruction{MKInstruction(PSH, s.idx).Fragment(), tempstack}, stack)
+			[][]Instruction{tempstack, MKInstruction(PSH, s.idx).Fragment()}, stack)
 	}
 	*stack = append(*stack, tempstack...)
 	elems := r.FixedItems()
