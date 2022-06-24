@@ -122,8 +122,9 @@ func (p *Parser) openScope() {
 	p.scopes[p.activeFragment()] = p.scopes[p.activeFragment()].Open(false)
 }
 
-func (p *Parser) closeScope() {
-	p.scopes[p.activeFragment()] = p.scopes[p.activeFragment()].Close()
+func (p *Parser) closeScope() (err error) {
+	p.scopes[p.activeFragment()], err = p.scopes[p.activeFragment()].Close()
+	return
 }
 
 func (p *Parser) ParseCode(blocks []Block, modulename string) error {

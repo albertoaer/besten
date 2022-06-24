@@ -234,7 +234,9 @@ func (p *Parser) parseIf(tks []Token, children []Block) error {
 	if e != nil {
 		return e
 	}
-	p.closeScope()
+	if e = p.closeScope(); e != nil {
+		return e
+	}
 	end := p.fragmentSize()
 	p.editInstruction(editpoint, MKInstruction(MVF, end-begin))
 	p.currentScope().blockflags.submitIf(editpoint, end-begin)
@@ -277,7 +279,9 @@ func (p *Parser) parseElse(block Block) error {
 		if e != nil {
 			return e
 		}
-		p.closeScope()
+		if e = p.closeScope(); e != nil {
+			return e
+		}
 	}
 	end := p.fragmentSize()
 	offset := end - begin
@@ -314,7 +318,9 @@ func (p *Parser) parseWhile(block Block) error {
 	if e != nil {
 		return e
 	}
-	p.closeScope()
+	if e = p.closeScope(); e != nil {
+		return e
+	}
 	end := p.fragmentSize()
 	p.addInstruction(MKInstruction(MVR, whilestart-end-1))
 	p.editInstruction(editpoint, MKInstruction(MVF, end-begin+1))

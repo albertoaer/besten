@@ -109,6 +109,9 @@ func (p *Parser) generateFunctionFromTemplate(name string, operator bool, caller
 	if err != nil {
 		return
 	}
+	if err = p.currentScope().CheckClose(); err != nil {
+		return
+	}
 	p.addInstruction(runtime.MKInstruction(runtime.RET))
 	p.backToFragment()
 

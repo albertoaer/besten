@@ -74,11 +74,13 @@ func injectBuiltinOperators(to *FunctionCollection) {
 }
 
 type Variable struct {
-	Type    OBJType
-	Mutable bool
-	Arg     bool
-	Asigned bool
-	Code    uint
+	Type       OBJType
+	Mutable    bool
+	Arg        bool
+	Asigned    bool
+	Used       bool
+	Code       uint
+	Dependency *Scope
 }
 
 type BlockFlags struct {
@@ -124,7 +126,7 @@ type Scope struct {
 }
 
 func (s *Scope) CreateVariable(name string, t OBJType, mutable bool, arg bool) {
-	s.Variables[name] = &Variable{t, mutable, arg, arg, 0}
+	s.Variables[name] = &Variable{t, mutable, arg, arg, false, 0, s}
 	if arg {
 		s.Variables[name].Code = *s.argcount
 		*s.argcount++
@@ -145,6 +147,7 @@ func (s *Scope) GetVariableIns(name string) (Instruction, OBJType, error) {
 		} else {
 			ins = MKInstruction(LLI, int(v.Code))
 		}
+		v.Used = true
 		return ins, v.Type, nil
 	}
 	return MKInstruction(NOP), nil, errors.New(fmt.Sprintf("Undefined variable: %s", name))
@@ -208,8 +211,21 @@ func (s *Scope) Open(fnscope bool) *Scope {
 	return ns
 }
 
-func (s *Scope) Close() *Scope {
-	return s.parent
+func (s *Scope) CheckClose() error {
+	for name, v := range s.Variables {
+		if v.Dependency == s && !v.Used && !v.Arg {
+			vart := "Variable"
+			if !v.Mutable {
+				vart = "Constant"
+			}
+			return errors.New(fmt.Sprintf("%s not used: %s", vart, name))
+		}
+	}
+	return nil
+}
+
+func (s *Scope) Close() (*Scope, error) {
+	return s.parent, s.CheckClose()
 }
 
 func (s *Scope) IsGlobal() bool {
