@@ -9,6 +9,16 @@ import (
 	"github.com/Besten/internal/runtime"
 )
 
+func (p *Parser) processFunctionCall(name string, operator bool, callers []OBJType,
+	insbuffers [][]runtime.Instruction) (ret OBJType, err error) {
+	into := make([]runtime.Instruction, 0)
+	ret, err = p.solveFunctionCall(name, operator, callers, insbuffers, &into)
+	if err == nil {
+		p.addInstructions(into)
+	}
+	return
+}
+
 func (p *Parser) solveFunctionCall(name string, operator bool, callers []OBJType,
 	insbuffers [][]runtime.Instruction, into *[]runtime.Instruction) (ret OBJType, err error) {
 	var sym *FunctionSymbol

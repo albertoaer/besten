@@ -380,7 +380,7 @@ func (p *Parser) parseWhile(block Block) error {
 
 func (p *Parser) parseFor(block Block) error {
 	//FIXME: For loop
-	/*tks := discardOne(block.Tokens)
+	tks := discardOne(block.Tokens)
 	tks, r := readUntilToken(tks, DO)
 	sides, e := splitByToken(tks, func(t Token) bool { return t == IN }, []struct {
 		open  Token
@@ -391,16 +391,8 @@ func (p *Parser) parseFor(block Block) error {
 	}
 	if len(sides) != 2 {
 		return errors.New("Expecting 'in' keyword")
-	}*/
-	/*
-		Steps:
-			- get iter(obj) method -> get the iterator from an object, done by the user
-			the for loops requires an iterator, in order to perform:
-			- get end(iter) method -> call each cycle, at the beginning
-			- get val(iter) method -> call each cycle, after checking is not the end
-			- get next(iter) method -> call each cycle, at the end
-	*/
-	/*itertp, e := p.parseExpression(sides[1], nil, false)
+	}
+	itertp, e := p.parseExpression(sides[1], nil, false)
 	var name string
 	{
 		t, r, e := expectT(sides[0], IdToken)
@@ -414,20 +406,6 @@ func (p *Parser) parseFor(block Block) error {
 	}
 	if e != nil {
 		return e
-	}
-	checkend, boolean, e := p.solveFunctionCall("end", false, []OBJType{itertp})
-	if e != nil {
-		return e
-	}
-	nextcall, nitertp, e := p.solveFunctionCall("next", false, []OBJType{itertp})
-	if e != nil {
-		return e
-	}
-	if !CompareTypes(itertp, nitertp) {
-		return errors.New(fmt.Sprintf("Type %s does not match %s", itertp.TypeName(), nitertp.TypeName()))
-	}
-	if boolean.Primitive() != BOOL {
-		return errors.New("Expected Boolean from end")
 	}
 	p.openScope()
 	p.currentScope().CreateVariable(name, itertp, true, false)
@@ -450,9 +428,14 @@ func (p *Parser) parseFor(block Block) error {
 		return e //Weird, variable has just been set
 	}
 	forstart := p.fragmentSize()
-	p.addInstruction(getiter)
-	p.addInstructions(checkend)
-	editpoint := p.addInstruction(MKInstruction(MVF))
+	boolean, e := p.processFunctionCall("end", false, []OBJType{itertp}, [][]Instruction{getiter.Fragment()})
+	if e != nil {
+		return e
+	}
+	if boolean.Primitive() != BOOL {
+		return errors.New("Expected Boolean from end")
+	}
+	editpoint := p.addInstruction(MKInstruction(MVT))
 	begin := p.fragmentSize()
 	e = p.parseBlocks(block.Children, Function)
 	if e != nil {
@@ -461,12 +444,17 @@ func (p *Parser) parseFor(block Block) error {
 	if e = p.closeScope(); e != nil {
 		return e
 	}
-	p.addInstruction(getiter)
-	p.addInstructions(nextcall)
+	nitertp, e := p.processFunctionCall("next", false, []OBJType{itertp}, [][]Instruction{getiter.Fragment()})
+	if e != nil {
+		return e
+	}
+	if !CompareTypes(itertp, nitertp) {
+		return errors.New(fmt.Sprintf("Type %s does not match %s", itertp.TypeName(), nitertp.TypeName()))
+	}
 	p.addInstruction(setiter)
 	end := p.fragmentSize()
 	p.addInstruction(MKInstruction(MVR, forstart-end-1))
-	p.editInstruction(editpoint, MKInstruction(MVT, end-begin+1))*/
+	p.editInstruction(editpoint, MKInstruction(MVT, end-begin+1))
 	return nil
 }
 
