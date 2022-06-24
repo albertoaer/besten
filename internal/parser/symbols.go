@@ -108,6 +108,7 @@ func injectBuiltinOperators(to *FunctionCollection) {
 	to.AddSymbols("||", wrapOpInstruction(OR, Bool, false))
 	to.AddSymbols("^^", wrapOpInstruction(XOR, Bool, false))
 	to.AddSymbols("==", multiTypeInstruction(2, Bool, map[OBJType]ICode{Str: EQS, Int: EQI, Dec: EQD, Bool: EQI}))
+	to.AddSymbols("!=", multiTypeInstruction(2, Bool, map[OBJType]ICode{Str: NQS, Int: NQI, Dec: NQD, Bool: NQI}))
 	to.AddSymbols("<", multiTypeInstruction(2, Bool, map[OBJType]ICode{Int: ILE, Dec: DLE}))
 	to.AddSymbols(">", multiTypeInstruction(2, Bool, map[OBJType]ICode{Int: IGR, Dec: DGR}))
 	to.AddSymbols("<=", multiTypeInstruction(2, Bool, map[OBJType]ICode{Int: ILQ, Dec: DLQ}))

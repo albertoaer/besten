@@ -225,13 +225,19 @@ func (proc *Process) run() {
 					panic(e)
 				}
 				fstack.Push(f)
-			//COMPARISON
+				//COMPARISON
 			case EQI:
 				fstack.Push(boolNum(fstack.a(ins).(int) == fstack.b(ins).(int)))
 			case EQD:
 				fstack.Push(boolNum(fstack.a(ins).(float64) == fstack.b(ins).(float64)))
 			case EQS:
 				fstack.Push(boolNum(fstack.a(ins).(string) == fstack.b(ins).(string)))
+			case NQI:
+				fstack.Push(boolNum(fstack.a(ins).(int) != fstack.b(ins).(int)))
+			case NQD:
+				fstack.Push(boolNum(fstack.a(ins).(float64) != fstack.b(ins).(float64)))
+			case NQS:
+				fstack.Push(boolNum(fstack.a(ins).(string) != fstack.b(ins).(string)))
 			case ILE:
 				fstack.Push(boolNum(fstack.a(ins).(int) < fstack.b(ins).(int)))
 			case DLE:
