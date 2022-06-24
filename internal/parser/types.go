@@ -104,7 +104,7 @@ func CompareTypes(a, b OBJType) bool {
 	case VECTOR, MAP, VARIADIC:
 		return CompareTypes(a.Items(), b.Items())
 	case STRUCT:
-		return a.TypeName() == b.TypeName() && CompareArrayOfTypes(a.FixedItems(), b.FixedItems())
+		return a.TypeName() == b.TypeName()
 	case TUPLE:
 		return CompareArrayOfTypes(a.FixedItems(), b.FixedItems())
 	}

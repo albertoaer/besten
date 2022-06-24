@@ -680,9 +680,16 @@ func (p *Parser) parseStruct(block Block) error {
 		return err
 	}
 	tps, err := splitByToken(tks, func(tk Token) bool { return tk == COMA }, genericPairs, false, false, false)
-	indexer := make(map[string]int)
-	tuple := make([]OBJType, 0)
 	count := 0
+	structure := StructOf(make([]OBJType, 0), make(map[string]int),
+		name.Data, p.currentScope().DataModule).(*Structure)
+	if err = p.currentScope().NewType(name.Data, structure); err != nil {
+		return err
+	}
+	var ptr *OBJType
+	if ptr, err = p.currentScope().FetchType(name.Data); err != nil {
+		return err
+	}
 	for _, tk := range tps {
 		var expand bool
 		var name string
@@ -699,32 +706,34 @@ func (p *Parser) parseStruct(block Block) error {
 		if tp, err = solveContextedTypeFromTokens(tk, p, true); err != nil {
 			return err
 		}
+		if *ptr == tp {
+			return errors.New("Circular type dependency")
+		}
 		if expand {
 			if tp.Primitive() != STRUCT {
 				return errors.New("Field expanding is only available for structs")
 			}
 			for name, idx := range tp.NamedItems() {
-				if _, e := indexer[name]; e {
+				if _, e := structure.Fields[name]; e {
 					return fmt.Errorf("Field %s already exists", name)
 				}
-				indexer[name] = count + idx
+				structure.Fields[name] = count + idx
 			}
-			tuple = append(tuple, tp.FixedItems()...)
+			structure.ItemTypes = append(structure.ItemTypes, tp.FixedItems()...)
 			count += len(tp.FixedItems())
 		} else {
-			if _, e := indexer[name]; e {
+			if _, e := structure.Fields[name]; e {
 				return fmt.Errorf("Field %s already exists", name)
 			}
-			indexer[name] = count
-			tuple = append(tuple, tp)
+			structure.Fields[name] = count
+			structure.ItemTypes = append(structure.ItemTypes, tp)
 			count++
 		}
 	}
-	if len(tuple) == 0 {
+	if len(structure.ItemTypes) == 0 {
 		return errors.New("Expecting at least one field")
 	}
-	structure := StructOf(tuple, indexer, name.Data, p.currentScope().DataModule)
-	return p.currentScope().NewType(name.Data, structure)
+	return nil
 }
 
 func (p *Parser) parseThrow(block Block) error {
