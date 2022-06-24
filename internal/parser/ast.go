@@ -794,6 +794,9 @@ func (s *SyntaxTree) generateOperands(tks []Token) ([]syntaxBranch, error) {
 }
 
 func splitFirstLevelFunctionCall(tks []Token) (name []Token, args []Token, spawned bool, err error) {
+	if !nextT(tks, IdToken) { //Avoid indentify function reference as call
+		return
+	}
 	split := indexOfFirstToken(tks, DOUBLES)
 	if split >= 0 {
 		for _, p := range genericPairs {
