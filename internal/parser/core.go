@@ -603,11 +603,19 @@ func (p *Parser) parseAlias(block Block) error {
 		return errors.New("Operator must be unary or binary")
 	}
 	if args < 0 {
-		srcfc.CopyAllTemplatesOf(srcname.Data, dstname.Data, dstfc)
-		srcfc.CopyAllSymbolsOf(srcname.Data, dstname.Data, dstfc)
+		if err = srcfc.CopyAllTemplatesOf(srcname.Data, dstname.Data, dstfc); err != nil {
+			return err
+		}
+		if err = srcfc.CopyAllSymbolsOf(srcname.Data, dstname.Data, dstfc); err != nil {
+			return err
+		}
 	} else {
-		srcfc.CopyTemplate(srcname.Data, args, dstname.Data, dstfc)
-		srcfc.CopySymbol(srcname.Data, args, dstname.Data, dstfc)
+		if err = srcfc.CopyTemplate(srcname.Data, args, dstname.Data, dstfc); err != nil {
+			return err
+		}
+		if err = srcfc.CopySymbol(srcname.Data, args, dstname.Data, dstfc); err != nil {
+			return err
+		}
 	}
 	return unexpect(tks)
 }

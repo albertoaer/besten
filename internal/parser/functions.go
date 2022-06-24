@@ -128,35 +128,43 @@ func (collection *FunctionCollection) DropAllTemplatesOf(name string) {
 }
 
 func (collection *FunctionCollection) DropTemplate(name string, args int) {
-	v, e := collection.templates[name]
-	if e {
+	if v, e := collection.templates[name]; e {
 		if _, e := v.fixedargs[args]; e {
 			delete(v.fixedargs, args)
 		}
 	}
 }
 
-func (collection *FunctionCollection) CopyAllTemplatesOf(name string, nname string, other *FunctionCollection) {
+func (collection *FunctionCollection) CopyAllTemplatesOf(name string, nname string, other *FunctionCollection) error {
 	if v, e := collection.templates[name]; e {
 		for _, v := range v.fixedargs {
-			other.AddTemplate(nname, v)
+			if err := other.AddTemplate(nname, v); err != nil {
+				return err
+			}
 		}
 		if v.variadic != nil {
-			other.AddTemplate(nname, *v.variadic)
+			if err := other.AddTemplate(nname, *v.variadic); err != nil {
+				return err
+			}
 		}
 	}
+	return nil
 }
 
-func (collection *FunctionCollection) CopyTemplate(name string, args int, nname string, other *FunctionCollection) {
-	v, e := collection.templates[name]
-	if e {
+func (collection *FunctionCollection) CopyTemplate(name string, args int, nname string, other *FunctionCollection) error {
+	if v, e := collection.templates[name]; e {
 		if v, e := v.fixedargs[args]; e {
-			other.AddTemplate(nname, v)
+			if err := other.AddTemplate(nname, v); err != nil {
+				return err
+			}
 		}
 		if v.variadic != nil && args >= len(v.variadic.Args) {
-			other.AddTemplate(nname, *v.variadic)
+			if err := other.AddTemplate(nname, *v.variadic); err != nil {
+				return err
+			}
 		}
 	}
+	return nil
 }
 
 //Creates a function container for a name in case it does not exists
@@ -250,27 +258,39 @@ func (collection *FunctionCollection) DropSymbol(name string, args int) {
 	}
 }
 
-func (collection *FunctionCollection) CopyAllSymbolsOf(name string, nname string, other *FunctionCollection) {
+func (collection *FunctionCollection) CopyAllSymbolsOf(name string, nname string, other *FunctionCollection) error {
 	if v, e := collection.functions[name]; e {
 		for _, v := range v.fixedargs {
-			other.AddSymbols(nname, v)
+			if err := other.AddSymbols(nname, v); err != nil {
+				return err
+			}
 		}
 		if len(v.variadic) > 0 {
-			other.AddSymbols(nname, v.variadic)
+			if err := other.AddSymbols(nname, v.variadic); err != nil {
+				return err
+			}
 		}
 		if v.dynamic != nil {
-			other.AddDynamicSymbol(nname, v.dynamic)
+			if err := other.AddDynamicSymbol(nname, v.dynamic); err != nil {
+				return err
+			}
 		}
 	}
+	return nil
 }
 
-func (collection *FunctionCollection) CopySymbol(name string, args int, nname string, other *FunctionCollection) {
+func (collection *FunctionCollection) CopySymbol(name string, args int, nname string, other *FunctionCollection) error {
 	if v, e := collection.functions[name]; e {
 		if v, e := v.fixedargs[args]; e {
-			other.AddSymbols(nname, v)
+			if err := other.AddSymbols(nname, v); err != nil {
+				return err
+			}
 		}
 		if len(v.variadic) > 0 && args >= v.minvariadicargs {
-			other.AddSymbols(nname, v.variadic)
+			if err := other.AddSymbols(nname, v.variadic); err != nil {
+				return err
+			}
 		}
 	}
+	return nil
 }
