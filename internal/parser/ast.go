@@ -262,11 +262,10 @@ func (s *syntaxTypeCreation) runIntoStack(p *Parser, stack *[]Instruction) (OBJT
 }
 
 type syntaxHighLevelCall struct {
-	relation  *syntaxRoute
-	operands  []syntaxBranch
-	modifiers []syntaxBranch
-	lambda    string
-	owner     *SyntaxTree
+	relation *syntaxRoute
+	operands []syntaxBranch
+	spawned  bool
+	owner    *SyntaxTree
 }
 
 func (s *syntaxHighLevelCall) runIntoStack(p *Parser, stack *[]Instruction) (OBJType, error) {
@@ -379,14 +378,14 @@ func (s *SyntaxTree) generateFirstLevelExpression(tks []Token, children []Block)
 		if tks[0] == FOR || tks[0] == WHILE {
 			return nil, errors.New("Generators are not implemented yet")
 		}
-		haslambda := tks[len(tks)-1] == DO
-		name, args, mods, lambdatemplate, err := splitFirstLevelFunctionCall(tks, haslambda, children)
+		name, args, spawned, err := splitFirstLevelFunctionCall(tks)
 		if err != nil {
 			return nil, err
 		}
 		if len(name) != 0 {
 			var op syntaxHighLevelCall
 			op.owner = s
+			op.spawned = spawned
 			route, e := getRoute(name)
 			if e != nil {
 				return nil, e
@@ -396,20 +395,12 @@ func (s *SyntaxTree) generateFirstLevelExpression(tks []Token, children []Block)
 			if err != nil {
 				return nil, err
 			}
-			op.modifiers, err = generateModifiers(mods)
-			if err != nil {
-				return nil, err
-			}
-			if haslambda {
-				op.lambda = s.parser.solveLambdaTemplate(lambdatemplate)
-			}
 			return &op, nil
 		} else if tks[len(tks)-1] == DO {
 			return nil, errors.New("Unexpected lambda")
-		} else {
-			//No high level function
-			return s.generateSecondLevelExpression(tks)
 		}
+		//No high level function
+		return s.generateSecondLevelExpression(tks)
 	}
 	return nil, nil
 }
@@ -641,42 +632,18 @@ func generateModifiers(ttks [][]Token) ([]syntaxBranch, error) {
 	return make([]syntaxBranch, 0), nil
 }
 
-func splitFirstLevelFunctionCall(tks []Token, haslambda bool, children []Block) (name []Token, args []Token, modifiers [][]Token, template FunctionTemplate, err error) {
+func splitFirstLevelFunctionCall(tks []Token) (name []Token, args []Token, spawned bool, err error) {
 	ttks, err := splitByToken(tks, func(t Token) bool { return t == DOUBLES }, genericPairs, true, false, true)
-	switch len(ttks) {
-	case 0:
-		err = errors.New("No function to be parsed") //Weird
-	case 1:
-		return //Is not a first level function
-	case 2: //without lambda
+	if len(ttks) == 2 {
 		name = ttks[0]
-		args, modifiers, err = substractModifiers(ttks[1])
-	case 3: //with lambda
-		if !haslambda {
-			err = errors.New("Too much argument lists")
+		spawned = ttks[1][len(ttks[1])-1] == SPAWN
+		if spawned {
+			args = ttks[1][:len(ttks[1])-1]
 		} else {
-			name = ttks[0]
-			args, modifiers, err = substractModifiers(ttks[1])
-			//FIXME: solution for types
-			template.Args, _, _, template.Varargs, err = parseArguments(ttks[2])
-			template.Children = children
-			if err == nil {
-				return
-			}
+			args = ttks[1]
 		}
-	default:
+	} else if len(ttks) > 2 {
 		err = errors.New("Too much argument lists")
 	}
 	return
-}
-
-func substractModifiers(tks []Token) ([]Token, [][]Token, error) {
-	ttks, err := splitByToken(tks, func(t Token) bool { return t.Kind == KeywordToken && t != TRUE && t != FALSE }, genericPairs, true, true, false)
-	if err != nil {
-		return nil, nil, err
-	}
-	if len(ttks) == 0 {
-		return make([]Token, 0), make([][]Token, 0), nil
-	}
-	return ttks[0], ttks[1:], nil
 }

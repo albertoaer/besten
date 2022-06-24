@@ -4,7 +4,6 @@ import (
 	"crypto/md5"
 	"errors"
 	"fmt"
-	"strconv"
 
 	"github.com/Besten/internal/runtime"
 )
@@ -103,17 +102,6 @@ func (p *Parser) generateFunctionTemplate(name string, operator bool, template F
 	} else {
 		return p.currentScope().Functions.AddTemplate(name, template)
 	}
-}
-
-var lambdaCount uint = 0
-
-func (p *Parser) solveLambdaTemplate(template FunctionTemplate) string {
-	name := "lambda" + strconv.Itoa(int(lambdaCount))
-	lambdaCount++
-	if e := p.currentScope().Functions.AddTemplate(name, template); e != nil {
-		panic(e) //Unexpected behaviour, overwriting lambda
-	}
-	return name
 }
 
 //Remember: This function does not check if there is another function with that types
