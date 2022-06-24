@@ -12,10 +12,7 @@ func solveTypeFromTokens(tokens []Token, allowany bool) (OBJType, error) {
 }
 
 func solveContextedTypeFromTokens(tokens []Token, parser *Parser, allowany bool) (OBJType, error) {
-	parts, err := splitByToken(tokens, func(t Token) bool { return t == SPLITTER }, []struct {
-		open  Token
-		close Token
-	}{{CBOPEN, CBCLOSE}}, false, false, false)
+	parts, err := splitByToken(tokens, func(t Token) bool { return t == SPLITTER }, genericPairs, false, false, false)
 	if err != nil {
 		return nil, err
 	}
@@ -118,9 +115,6 @@ func solveTypeTuple(parts [][]Token, parser *Parser, allowany bool) (OBJType, er
 	if len(parts) == 0 {
 		return nil, errors.New("Wrong tuple generation type call")
 	}
-	if len(parts) > 1 {
-		return nil, errors.New("Tuple type definition has no child type")
-	}
 	p := parts[0][1 : len(parts[0])-1] //Asume call was {*data*} form like
 	tokens, e := splitByToken(p, func(t Token) bool { return t == COMA }, []struct {
 		open  Token
@@ -136,6 +130,16 @@ func solveTypeTuple(parts [][]Token, parser *Parser, allowany bool) (OBJType, er
 			return nil, e
 		}
 		types = append(types, result)
+	}
+	if len(parts) == 2 {
+		rettype, e := genericSolveType(parts[1:], parser, allowany)
+		if e != nil {
+			return nil, e
+		}
+		return FunctionTypeOf(types, rettype), nil
+	}
+	if len(parts) > 2 {
+		return nil, errors.New("Function type definition has no child type")
 	}
 	return TupleOf(types), nil
 }

@@ -85,7 +85,7 @@ func injectBuiltinFunctions(to *FunctionCollection) {
 	}).Fragment(), CloneType(Str), []OBJType{Any}})
 	to.AddDynamicSymbol("stref", func(o []OBJType) *FunctionSymbol {
 		if len(o) == 1 {
-			return &FunctionSymbol{"none", false, []Instruction{MKInstruction(POP), MKInstruction(PSH, Repr(o[0]))}, CloneType(Str), []OBJType{o[0].Items()}}
+			return &FunctionSymbol{"none", false, []Instruction{MKInstruction(POP), MKInstruction(PSH, Repr(o[0]))}, CloneType(Str), o}
 		}
 		return nil
 	})
@@ -97,14 +97,14 @@ func injectBuiltinFunctions(to *FunctionCollection) {
 	to.AddDynamicSymbol("vec", func(o []OBJType) *FunctionSymbol {
 		if len(o) > 0 {
 			ret := VecOf(o[0])
-			return &FunctionSymbol{"none", true, []Instruction{}, &ret, []OBJType{VecOf(Str)}}
+			return &FunctionSymbol{"none", true, []Instruction{}, &ret, []OBJType{VecOf(o[0])}}
 		}
 		return nil
 	})
 	to.AddDynamicSymbol("pop", func(o []OBJType) *FunctionSymbol {
 		if len(o) == 1 && o[0].Primitive() == VECTOR {
 			ret := o[0].Items()
-			return &FunctionSymbol{"none", false, []Instruction{MKInstruction(PFV)}, &ret, []OBJType{o[0].Items()}}
+			return &FunctionSymbol{"none", false, []Instruction{MKInstruction(PFV)}, &ret, o}
 		}
 		return nil
 	})
@@ -119,6 +119,38 @@ func injectBuiltinFunctions(to *FunctionCollection) {
 				return nil
 			}
 			return &FunctionSymbol{"none", false, ins, CloneType(Void), o}
+		}
+		return nil
+	})
+	to.AddDynamicSymbol("callfn", func(o []OBJType) *FunctionSymbol {
+		if o[0].Primitive() == FUNCTION {
+			fn := o[0].(*FunctionType)
+			if !CompareArrayOfTypes(o[1:], fn.args) {
+				return nil
+			}
+			return &FunctionSymbol{"none", false, MKInstruction(CLL).Fragment(), CloneType(fn.ret), o}
+		}
+		return nil
+	})
+	to.AddDynamicSymbol("callmapfn", func(o []OBJType) *FunctionSymbol {
+		if len(o) == 2 && o[0].Primitive() == FUNCTION && o[1].Primitive() == TUPLE {
+			fn := o[0].(*FunctionType)
+			if !CompareArrayOfTypes(o[1].FixedItems(), fn.args) {
+				return nil
+			}
+			return &FunctionSymbol{"none", false, MKInstruction(CLX).Fragment(), CloneType(fn.ret), o}
+		}
+		return nil
+	})
+	to.AddDynamicSymbol("argsfn", func(o []OBJType) *FunctionSymbol {
+		if len(o) == 1 && o[0].Primitive() == FUNCTION {
+			fn := o[0].(*FunctionType)
+			tp := TupleOf(fn.args)
+			tpins, e := tp.Create()
+			if e != nil {
+				return nil
+			}
+			return &FunctionSymbol{"none", false, tpins, &tp, o}
 		}
 		return nil
 	})

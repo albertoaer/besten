@@ -9,6 +9,7 @@ var (
 	IMPORT         = Token{Data: "import", Kind: KeywordToken}
 	STRUCTK        = Token{Data: "struct", Kind: KeywordToken}
 	FN             = Token{Data: "fn", Kind: KeywordToken}
+	OP             = Token{Data: "op", Kind: KeywordToken}
 	DO             = Token{Data: "do", Kind: KeywordToken}
 	IN             = Token{Data: "in", Kind: KeywordToken}
 	IF             = Token{Data: "if", Kind: KeywordToken}

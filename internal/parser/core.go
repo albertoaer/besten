@@ -166,6 +166,14 @@ func (p *Parser) parseDefinition(block Block, constant bool) error {
 		return e
 	}
 	p.addInstruction(ins)
+	if ret.Primitive() == FUNCTION {
+		if !constant {
+			return errors.New("Function declaration must be constant")
+		}
+		if e = p.functionFromVariable(id.Data); e != nil {
+			return e
+		}
+	}
 	return nil
 }
 

@@ -124,7 +124,7 @@ func (p *Parser) generateFunctionFromTemplate(name string, operator bool, caller
 }
 
 func (p *Parser) generateFunctionFromRawTemplate(name string, operator bool, callers []OBJType, template *FunctionTemplate) (sym *FunctionSymbol, err error) {
-	compilename := generateFnUUID(name, p.modulename, len(template.Args), template.Varargs)
+	compilename := generateFnUUID(name, p.modulename, len(template.Args), template.Varargs, false)
 
 	p.openFragmentFor(compilename, len(template.Args))
 
@@ -148,6 +148,11 @@ func (p *Parser) generateFunctionFromRawTemplate(name string, operator bool, cal
 			args = append(args, v)
 		} else {
 			p.currentScope().CreateVariable(template.Args[i], callers[i], true, true)
+			if callers[i].Primitive() == FUNCTION {
+				if err = p.functionFromVariable(template.Args[i]); err != nil {
+					return
+				}
+			}
 			args = append(args, callers[i])
 		}
 	}
@@ -179,6 +184,36 @@ func (p *Parser) generateFunctionFromRawTemplate(name string, operator bool, cal
 	return
 }
 
+func (p *Parser) functionFromVariable(name string) error {
+	ins, fnt, e := p.currentScope().GetVariableIns(name)
+	if e != nil {
+		return e
+	}
+	if fnt.Primitive() != FUNCTION {
+		return errors.New(fmt.Sprintf("Variable %s is not a function", name))
+	}
+	fn := fnt.(*FunctionType)
+	if e = p.currentScope().Functions.AddSymbol(name, &FunctionSymbol{
+		name, false, []runtime.Instruction{ins, runtime.MKInstruction(runtime.CLL)},
+		CloneType(fn.ret), fn.args,
+	}); e != nil {
+		return e
+	}
+	return nil
+}
+
+func (p *Parser) getFunctionTypeFrom(name string, fn *FunctionSymbol) (OBJType, string) {
+	compilename := fn.CName
+	if len(fn.Call) != 1 || fn.Call[0].Code != runtime.CLL {
+		compilename = generateFnUUID(name, p.modulename, len(fn.Args), fn.Varargs, true)
+		p.openFragmentFor(compilename, 0)
+		p.addInstructions(fn.Call)
+		p.addInstruction(runtime.MKInstruction(runtime.RET))
+		p.backToFragment()
+	}
+	return FunctionTypeOf(fn.Args, *fn.Return), compilename
+}
+
 var counters map[struct {
 	string
 	int
@@ -187,7 +222,7 @@ var counters map[struct {
 	int
 }]*int)
 
-func generateFnUUID(name, module string, args int, varargs bool) string {
+func generateFnUUID(name, module string, args int, varargs, shared bool) string {
 	v, e := counters[struct {
 		string
 		int
@@ -204,6 +239,9 @@ func generateFnUUID(name, module string, args int, varargs bool) string {
 	mode := "a"
 	if varargs {
 		mode = "v"
+	}
+	if shared {
+		mode += "s"
 	}
 	result := fmt.Sprintf("%s/%d$%s@%x%d", name, args, mode, modulesum, *v)
 	(*v)++

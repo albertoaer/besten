@@ -312,6 +312,63 @@ func (s *syntaxOpCall) runIntoStackSet(p *Parser, stack *[]Instruction, branch s
 	return err
 }
 
+type syntaxFnReference struct {
+	relation *syntaxRoute
+	args     []Token
+	owner    *SyntaxTree
+}
+
+func (s *syntaxFnReference) runIntoStack(p *Parser, stack *[]Instruction) (OBJType, error) {
+	operandTuple, err := solveContextedTypeFromTokens(s.args, p, true)
+	if err != nil {
+		return nil, err
+	}
+	if operandTuple.Primitive() != TUPLE {
+		return nil, errors.New("Expecting tuple in order to identify function arguments")
+	}
+	args := operandTuple.FixedItems()
+	if s.relation == nil || len(s.relation.route) == 0 {
+		return Void, errors.New("No way to fetch function")
+	}
+	if s.relation.origin != nil {
+		return Void, errors.New("A function must always be global defined")
+	}
+	if len(s.relation.route) > 1 {
+		return Void, errors.New("Not implemented function route navigation")
+	}
+	sym, err := p.getSymbolForCall(s.relation.route[0], false, args)
+	if err != nil {
+		return nil, err
+	}
+	fntp, cname := p.getFunctionTypeFrom(s.relation.route[0], sym)
+	*stack = append(*stack, MKInstruction(PSH, cname))
+	return fntp, nil
+}
+
+type syntaxOpReference struct {
+	identifier string
+	args       []Token
+	owner      *SyntaxTree
+}
+
+func (s *syntaxOpReference) runIntoStack(p *Parser, stack *[]Instruction) (OBJType, error) {
+	operandTuple, err := solveContextedTypeFromTokens(s.args, p, true)
+	if err != nil {
+		return nil, err
+	}
+	if operandTuple.Primitive() != TUPLE {
+		return nil, errors.New("Expecting tuple in order to identify function arguments")
+	}
+	args := operandTuple.FixedItems()
+	sym, err := p.getSymbolForCall(s.identifier, true, args)
+	if err != nil {
+		return nil, err
+	}
+	fntp, cname := p.getFunctionTypeFrom(s.identifier, sym)
+	*stack = append(*stack, MKInstruction(PSH, cname))
+	return fntp, nil
+}
+
 type syntaxTypeCreation struct {
 	typeref []Token
 	owner   *SyntaxTree
@@ -322,7 +379,11 @@ func (s *syntaxTypeCreation) runIntoStack(p *Parser, stack *[]Instruction) (OBJT
 	if e != nil {
 		return nil, e
 	}
-	*stack = append(*stack, obj.Create()...)
+	i, e := obj.Create()
+	if e != nil {
+		return nil, e
+	}
+	*stack = append(*stack, i...)
 	return obj, nil
 }
 
@@ -349,8 +410,12 @@ func (s *syntaxHighLevelCall) runIntoStack(p *Parser, stack *[]Instruction) (OBJ
 	}
 	ret, err := p.solveFunctionCall(s.relation.route[0], false, ops, stacks, stack)
 	if err == nil {
-		if s.owner.inReturn && (*stack)[len(*stack)-1].Code == CLL {
-			(*stack)[len(*stack)-1].Code = JMP
+		if s.owner.inReturn {
+			if (*stack)[len(*stack)-1].Code == CLL {
+				(*stack)[len(*stack)-1].Code = JMP
+			} else if (*stack)[len(*stack)-1].Code == CLX {
+				(*stack)[len(*stack)-1].Code = JMX
+			}
 		}
 	}
 	return ret, err
@@ -464,8 +529,6 @@ func (s *SyntaxTree) generateFirstLevelExpression(tks []Token, children []Block)
 				return nil, err
 			}
 			return &op, nil
-		} else if tks[len(tks)-1] == DO {
-			return nil, errors.New("Unexpected lambda")
 		}
 		//No high level function
 		return s.generateSecondLevelExpression(tks)
@@ -474,11 +537,41 @@ func (s *SyntaxTree) generateFirstLevelExpression(tks []Token, children []Block)
 }
 
 func (s *SyntaxTree) generateSecondLevelExpression(tks []Token) (syntaxBranch, error) {
+	if len(tks) > 0 && (tks[0] == FN || tks[0] == OP) {
+		return s.generateFunctionReference(discardOne(tks), tks[0] == OP)
+	}
 	ttks, err := splitByToken(tks, func(tk Token) bool { return tk.Kind == OperatorToken }, genericPairs, true, true, false)
 	if err != nil {
 		return nil, err
 	}
 	return s.generateOperatorBranch(ttks)
+}
+
+func (s *SyntaxTree) generateFunctionReference(tks []Token, op bool) (syntaxBranch, error) {
+	id, args := readUntilToken(tks, DOUBLES)
+	if len(args) == 0 || args[0] != DOUBLES {
+		return nil, errors.New("Expecting token ':'")
+	} else {
+		args = discardOne(args)
+	}
+	var branch syntaxBranch
+	var e error
+	if op {
+		var o Token
+		if o, id, e = expectT(id, OperatorToken); e == nil {
+			branch = &syntaxOpReference{o.Data, args, s}
+			id = discardOne(id)
+		}
+		if e == nil {
+			e = unexpect(id)
+		}
+	} else {
+		var route []string
+		if route, e = getRoute(id); e == nil {
+			branch = &syntaxFnReference{&syntaxRoute{nil, route, s}, args, s}
+		}
+	}
+	return branch, e
 }
 
 //we asume the odd positions are operators
@@ -700,25 +793,21 @@ func (s *SyntaxTree) generateOperands(tks []Token) ([]syntaxBranch, error) {
 	return branchs, nil
 }
 
-func generateModifiers(ttks [][]Token) ([]syntaxBranch, error) {
-	for range ttks {
-		return nil, errors.New("Modifier not implemented")
-	}
-	return make([]syntaxBranch, 0), nil
-}
-
 func splitFirstLevelFunctionCall(tks []Token) (name []Token, args []Token, spawned bool, err error) {
-	ttks, err := splitByToken(tks, func(t Token) bool { return t == DOUBLES }, genericPairs, true, false, true)
-	if len(ttks) == 2 {
-		name = ttks[0]
-		spawned = ttks[1][len(ttks[1])-1] == SPAWN
-		if spawned {
-			args = ttks[1][:len(ttks[1])-1]
-		} else {
-			args = ttks[1]
+	split := indexOfFirstToken(tks, DOUBLES)
+	if split >= 0 {
+		for _, p := range genericPairs {
+			i := indexOfFirstToken(tks, p.open)
+			if i >= 0 && i < split {
+				return
+			}
 		}
-	} else if len(ttks) > 2 {
-		err = errors.New("Too much argument lists")
+		name = tks[:split]
+		args = tks[split+1:]
+		spawned = args[len(args)-1] == SPAWN
+		if spawned {
+			args = args[:len(args)-1]
+		}
 	}
 	return
 }

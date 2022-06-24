@@ -194,3 +194,15 @@ func readUntilToken(data []Token, key Token) ([]Token, []Token) {
 	}
 	return data, nil
 }
+
+/*
+returns -1 if the token is not found, the index otherwise
+*/
+func indexOfFirstToken(data []Token, tk Token) int {
+	for i := range data {
+		if data[i] == tk {
+			return i
+		}
+	}
+	return -1
+}

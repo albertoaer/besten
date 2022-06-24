@@ -1,6 +1,10 @@
 package parser
 
-import "github.com/Besten/internal/runtime"
+import (
+	"errors"
+
+	"github.com/Besten/internal/runtime"
+)
 
 type PrimitiveType uint8
 
@@ -18,6 +22,7 @@ const (
 	STRUCT   PrimitiveType = 10
 	VARIADIC PrimitiveType = 11
 	ALIAS    PrimitiveType = 12
+	FUNCTION PrimitiveType = 13
 )
 
 func FnCArrRepr(arr []OBJType) string {
@@ -43,17 +48,20 @@ func Repr(a OBJType) string {
 		base += "|" + Repr(a.Items())
 	case TUPLE:
 		return ArrRepr(a.FixedItems(), '{', '}')
+	case FUNCTION:
+		fn := a.(*FunctionType)
+		return ArrRepr(fn.args, '{', '}') + "|" + Repr(fn.ret)
 	}
 	return base
 }
 
 type OBJType interface {
-	TypeName() string              //For identifying type
-	Primitive() PrimitiveType      //For basic object kind identification
-	Items() OBJType                //For containers with unique and unnamed types
-	FixedItems() []OBJType         //For tuple and structures with fixed fields
-	NamedItems() map[string]int    //For structures with fixed and indexed fields
-	Create() []runtime.Instruction //Instructions to create the object
+	TypeName() string                       //For identifying type
+	Primitive() PrimitiveType               //For basic object kind identification
+	Items() OBJType                         //For containers with unique and unnamed types
+	FixedItems() []OBJType                  //For tuple and structures with fixed fields
+	NamedItems() map[string]int             //For structures with fixed and indexed fields
+	Create() ([]runtime.Instruction, error) //Instructions to create the object
 }
 
 func CloneType(o OBJType) *OBJType {
@@ -79,6 +87,11 @@ func CompareTypes(a, b OBJType) bool {
 	}
 	if a.Primitive() == ALIAS || b.Primitive() == ALIAS {
 		return a.TypeName() == b.TypeName()
+	}
+	if a.Primitive() == FUNCTION || b.Primitive() == FUNCTION {
+		at := (a.(*FunctionType))
+		bt := (b.(*FunctionType))
+		return CompareArrayOfTypes(at.args, bt.args) && CompareTypes(at.ret, bt.ret)
 	}
 	if a.Primitive() != b.Primitive() {
 		return false
@@ -107,7 +120,7 @@ func checkCompatibility(from, to OBJType) bool {
 			return CompareTypes(TupleOf(a), from)
 		}
 		if from.Primitive() == STRUCT {
-			return CompareTypes(TupleOf(a), TupleOf(from.(*Structure).ItemTypes))
+			return CompareArrayOfTypes(a, from.(*Structure).ItemTypes)
 		}
 	}
 	return false
@@ -148,8 +161,8 @@ func (nc *Literal) NamedItems() map[string]int {
 	return nil
 }
 
-func (nc *Literal) Create() []runtime.Instruction {
-	return runtime.MKInstruction(runtime.PSH, nc.DefaultObj).Fragment()
+func (nc *Literal) Create() ([]runtime.Instruction, error) {
+	return runtime.MKInstruction(runtime.PSH, nc.DefaultObj).Fragment(), nil
 }
 
 type Container struct {
@@ -191,8 +204,8 @@ func (nc *Container) NamedItems() map[string]int {
 	return nil
 }
 
-func (nc *Container) Create() []runtime.Instruction {
-	return runtime.MKInstruction(nc.CreateInstruction).Fragment()
+func (nc *Container) Create() ([]runtime.Instruction, error) {
+	return runtime.MKInstruction(nc.CreateInstruction).Fragment(), nil
 }
 
 type Tuple struct {
@@ -223,12 +236,16 @@ func (nc *Tuple) NamedItems() map[string]int {
 	return nil
 }
 
-func (nc *Tuple) Create() []runtime.Instruction {
+func (nc *Tuple) Create() ([]runtime.Instruction, error) {
 	data := make([]runtime.Instruction, 0)
 	for _, v := range nc.ItemTypes {
-		data = append(v.Create(), data...)
+		i, e := v.Create()
+		if e != nil {
+			return nil, e
+		}
+		data = append(i, data...)
 	}
-	return append(data, runtime.MKInstruction(runtime.CSE, len(nc.ItemTypes)))
+	return append(data, runtime.MKInstruction(runtime.CSE, len(nc.ItemTypes))), nil
 }
 
 type Alias struct {
@@ -263,7 +280,7 @@ func (nc *Alias) NamedItems() map[string]int {
 	return nc.Holds.NamedItems()
 }
 
-func (nc *Alias) Create() []runtime.Instruction {
+func (nc *Alias) Create() ([]runtime.Instruction, error) {
 	return nc.Holds.Create()
 }
 
@@ -297,10 +314,47 @@ func (nc *Structure) NamedItems() map[string]int {
 	return nc.Fields
 }
 
-func (nc *Structure) Create() []runtime.Instruction {
+func (nc *Structure) Create() ([]runtime.Instruction, error) {
 	data := make([]runtime.Instruction, 0)
 	for _, v := range nc.ItemTypes {
-		data = append(data, v.Create()...)
+		i, e := v.Create()
+		if e != nil {
+			return nil, e
+		}
+		data = append(i, data...)
 	}
-	return append(data, runtime.MKInstruction(runtime.CSE, len(nc.ItemTypes)))
+	return append(data, runtime.MKInstruction(runtime.CSE, len(nc.ItemTypes))), nil
+}
+
+type FunctionType struct {
+	args []OBJType
+	ret  OBJType
+}
+
+func FunctionTypeOf(args []OBJType, ret OBJType) OBJType {
+	return &FunctionType{args, ret}
+}
+
+func (nc *FunctionType) TypeName() string {
+	return "Function"
+}
+
+func (nc *FunctionType) Primitive() PrimitiveType {
+	return FUNCTION
+}
+
+func (nc *FunctionType) Items() OBJType {
+	return nil
+}
+
+func (nc *FunctionType) FixedItems() []OBJType {
+	return nil
+}
+
+func (nc *FunctionType) NamedItems() map[string]int {
+	return nil
+}
+
+func (nc *FunctionType) Create() ([]runtime.Instruction, error) {
+	return nil, errors.New("Trying to instance a type with no default value")
 }
