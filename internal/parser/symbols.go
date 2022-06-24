@@ -77,6 +77,7 @@ type Variable struct {
 	Type    OBJType
 	Mutable bool
 	Arg     bool
+	Asigned bool
 	Code    uint
 }
 
@@ -87,23 +88,26 @@ type Scope struct {
 	ReturnType *OBJType
 	Returned   *bool
 	parent     *Scope
-	varcount   uint
-	argcount   uint
+	varcount   *uint
+	argcount   *uint
 }
 
 func (s *Scope) CreateVariable(name string, t OBJType, mutable bool, arg bool) {
-	s.Variables[name] = &Variable{t, mutable, arg, 0}
+	s.Variables[name] = &Variable{t, mutable, arg, arg, 0}
 	if arg {
-		s.Variables[name].Code = s.argcount
-		s.argcount++
+		s.Variables[name].Code = *s.argcount
+		*s.argcount++
 	} else {
-		s.Variables[name].Code = s.varcount
-		s.varcount++
+		s.Variables[name].Code = *s.varcount
+		*s.varcount++
 	}
 }
 
 func (s *Scope) GetVariableIns(name string) (Instruction, OBJType, error) {
 	if v, e := s.Variables[name]; e {
+		if !v.Asigned {
+			return MKInstruction(NOP), nil, errors.New(fmt.Sprintf("A value has not been set for: %s", name))
+		}
 		var ins Instruction
 		if v.Arg {
 			ins = MKInstruction(LEI, int(v.Code))
@@ -117,6 +121,9 @@ func (s *Scope) GetVariableIns(name string) (Instruction, OBJType, error) {
 
 func (s *Scope) SetVariableIns(name string, t OBJType) (Instruction, error) {
 	if v, e := s.Variables[name]; e {
+		if v.Asigned && !v.Mutable {
+			return MKInstruction(NOP), errors.New(fmt.Sprintf("Trying to reasign a constant: %s", name))
+		}
 		if !CompareTypes(v.Type, t) {
 			return MKInstruction(NOP), errors.New("Invalid type")
 		}
@@ -126,6 +133,11 @@ func (s *Scope) SetVariableIns(name string, t OBJType) (Instruction, error) {
 		} else {
 			ins = MKInstruction(SLI, int(v.Code))
 		}
+		/*
+			We asume has been asigned if
+			it has been requested de assignment instruction
+		*/
+		v.Asigned = true
 		return ins, nil
 	}
 	return MKInstruction(NOP), errors.New(fmt.Sprintf("Undefined variable: %s", name))
@@ -134,25 +146,29 @@ func (s *Scope) SetVariableIns(name string, t OBJType) (Instruction, error) {
 func NewScope() *Scope {
 	rptr := Void
 	r := false
+	var vc, ac uint = 0, 0
 	return &Scope{Variables: make(map[string]*Variable),
 		Functions:  NewFunctionCollection(),
 		Operators:  NewFunctionCollection(),
-		ReturnType: &rptr, Returned: &r, parent: nil, varcount: 0, argcount: 0}
+		ReturnType: &rptr, Returned: &r, parent: nil, varcount: &vc, argcount: &ac}
 }
 
-func (s *Scope) Open(nreturn bool) *Scope {
+func (s *Scope) Open(fnscope bool) *Scope {
 	returnt := s.ReturnType
 	returned := s.Returned
-	if nreturn {
+	vc, ac := s.varcount, s.argcount
+	if fnscope {
 		rptr := Void
 		returnt = &rptr
-		b := false
-		returned = &b
+		isret := false
+		returned = &isret
+		var vcv, acv uint = 0, 0
+		vc, ac = &vcv, &acv
 	}
 	ns := &Scope{Variables: make(map[string]*Variable),
 		Functions:  s.Functions.Fork(),
 		Operators:  s.Operators.Fork(),
-		ReturnType: returnt, Returned: returned, parent: s, varcount: 0, argcount: 0}
+		ReturnType: returnt, Returned: returned, parent: s, varcount: vc, argcount: ac}
 	for k, v := range s.Variables {
 		ns.Variables[k] = v
 	}
