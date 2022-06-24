@@ -40,15 +40,33 @@ func wrapOpInstruction(code ICode, tp OBJType, unary bool) []*FunctionSymbol {
 }
 
 func injectBuiltinFunctions(to *FunctionCollection) {
-	to.AddSymbol("print", &FunctionSymbol{"none", false, MKInstruction(IFD, EmbeddedFunction{
+	to.AddSymbol("print", &FunctionSymbol{"none", true, MKInstruction(IFD, EmbeddedFunction{
 		Name:     "print",
 		ArgCount: 1,
 		Function: func(args []Object) Object {
-			fmt.Println(args[0])
+			v := *args[0].(VecT)
+			for i, e := range v {
+				if i == len(v)-1 {
+					fmt.Println(e)
+				} else {
+					fmt.Print(e)
+				}
+			}
 			return nil
 		},
 		Returns: false,
-	}).Fragment(), CloneType(Void), []OBJType{Any}})
+	}).Fragment(), CloneType(Void), []OBJType{VecOf(Any)}})
+	to.AddSymbol("puts", &FunctionSymbol{"none", true, MKInstruction(IFD, EmbeddedFunction{
+		Name:     "puts",
+		ArgCount: 1,
+		Function: func(args []Object) Object {
+			for _, e := range *args[0].(VecT) {
+				fmt.Print(e)
+			}
+			return nil
+		},
+		Returns: false,
+	}).Fragment(), CloneType(Void), []OBJType{VecOf(Any)}})
 	to.AddSymbol("clock", &FunctionSymbol{"none", false, MKInstruction(IFD, EmbeddedFunction{
 		Name:     "clock",
 		ArgCount: 0,
