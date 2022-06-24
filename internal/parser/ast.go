@@ -430,27 +430,35 @@ func (s *SyntaxTree) generateOperatorBranch(tks [][]Token) (syntaxBranch, error)
 	if len(tks) == 1 {
 		return s.identifyExpressionBranch(tks[0])
 	}
-	if len(tks[0]) == 0 { //Unary operator
+	if len(tks) == 2 {
+		return nil, errors.New("No operator sequence")
+	}
+	//Find first binary operator
+	p := -1
+	for i := 1; i < len(tks); i += 2 {
+		if len(tks[i-1]) != 0 {
+			p = i
+			break
+		}
+	}
+	if p < 0 { //Unary operator
 		op, err := s.generateOperatorBranch(tks[2:])
 		return &syntaxOpCall{
 			operator: tks[1][0].Data,
 			operands: []syntaxBranch{op},
 		}, err
 	}
-	firstop, err := s.identifyExpressionBranch(tks[0])
+	left, err := s.generateOperatorBranch(tks[0:p])
+	if err != nil {
+		return nil, err
+	}
+	right, err := s.generateOperatorBranch(tks[p+1:])
 	if err != nil {
 		return nil, err
 	}
 	opb := syntaxOpCall{
-		operator: tks[1][0].Data,
-		operands: []syntaxBranch{firstop},
-	}
-	if len(tks) > 2 {
-		op, err := s.generateOperatorBranch(tks[2:])
-		if err != nil {
-			return nil, err
-		}
-		opb.operands = append(opb.operands, op)
+		operator: tks[p][0].Data,
+		operands: []syntaxBranch{left, right},
 	}
 	return &opb, nil
 }
