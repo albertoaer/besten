@@ -63,7 +63,7 @@ func parseArguments(tks []Token) (args []string, types []OBJType, usetypes bool,
 				err = errors.New(fmt.Sprintf("Expecting type for argument: %s", nm.Data))
 				return
 			}
-			tp, e := solveTypeFromTokens(n)
+			tp, e := solveTypeFromTokens(n, false)
 			if e != nil {
 				err = e
 				return
@@ -612,6 +612,66 @@ func (p *Parser) parseAlias(block Block) error {
 	return unexpect(tks)
 }
 
+func (p *Parser) parseDropFn(block Block) error {
+	tks := discardOne(block.Tokens)
+	msg := "Function dropped"
+	drop := true
+	if isNext(tks) {
+		if nextT(tks, StringToken) {
+			msg += ", cause: " + tks[0].Data
+			tks = discardOne(tks)
+			if e := unexpect(tks); e != nil {
+				return e
+			}
+		} else if nextT(tks, IdToken) {
+			_, tpv, e := p.currentScope().GetVariableIns(tks[0].Data)
+			if e != nil {
+				return e
+			}
+			tks = discardOne(tks)
+			match := true
+			if next(tks, NOTOP) {
+				match = false
+				tks = discardOne(tks)
+			}
+			if tks, e = expect(tks, FOR); e != nil {
+				return e
+			}
+			types, e := splitByToken(tks, func(tk Token) bool { return tk == COMA }, []struct {
+				open  Token
+				close Token
+			}{{CBOPEN, CBCLOSE}}, false, false, false)
+			if e != nil {
+				return e
+			}
+			tps := make([]OBJType, len(types))
+			for i, tktp := range types {
+				tp, e := solveContextedTypeFromTokens(tktp, p, true)
+				if e != nil {
+					return e
+				}
+				tps[i] = tp
+			}
+			drop = false
+			for _, tp := range tps {
+				if match == CompareTypes(tp, tpv) {
+					verb := "does not match"
+					if match {
+						verb = "matchs"
+					}
+					msg = fmt.Sprintf("%s %s %s", Repr(tpv), verb, Repr(tp))
+					drop = true
+					break
+				}
+			}
+		}
+	}
+	if !drop {
+		return nil
+	}
+	return errors.New(msg)
+}
+
 func (p *Parser) parseByKeyword(name string, block Block, scp ScopeCtx) error {
 	if scp == Global {
 		switch name {
@@ -648,6 +708,8 @@ func (p *Parser) parseByKeyword(name string, block Block, scp ScopeCtx) error {
 				return err
 			}
 			return p.parseBlocks(block.Children, scp)
+		case "drop":
+			return p.parseDropFn(block)
 		}
 	}
 	if scp == Loop {

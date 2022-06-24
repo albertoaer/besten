@@ -7,11 +7,11 @@ import (
 	. "github.com/Besten/internal/lexer"
 )
 
-func solveTypeFromTokens(tokens []Token) (OBJType, error) {
-	return solveContextedTypeFromTokens(tokens, nil)
+func solveTypeFromTokens(tokens []Token, allowany bool) (OBJType, error) {
+	return solveContextedTypeFromTokens(tokens, nil, allowany)
 }
 
-func solveContextedTypeFromTokens(tokens []Token, parser *Parser) (OBJType, error) {
+func solveContextedTypeFromTokens(tokens []Token, parser *Parser, allowany bool) (OBJType, error) {
 	parts, err := splitByToken(tokens, func(t Token) bool { return t == SPLITTER }, []struct {
 		open  Token
 		close Token
@@ -19,10 +19,10 @@ func solveContextedTypeFromTokens(tokens []Token, parser *Parser) (OBJType, erro
 	if err != nil {
 		return nil, err
 	}
-	return genericSolveType(parts, parser)
+	return genericSolveType(parts, parser, allowany)
 }
 
-func genericSolveType(parts [][]Token, parser *Parser) (OBJType, error) {
+func genericSolveType(parts [][]Token, parser *Parser, allowany bool) (OBJType, error) {
 	if len(parts) == 0 {
 		return nil, errors.New("Expecting type")
 	}
@@ -45,13 +45,13 @@ func genericSolveType(parts [][]Token, parser *Parser) (OBJType, error) {
 		if base[len(base)-1] != CBCLOSE {
 			return nil, errors.New("Expecting tuple closer")
 		}
-		return solveTypeTuple(parts, parser)
+		return solveTypeTuple(parts, parser, allowany)
 	}
 	if len(base) > 1 || base[0].Kind != IdToken {
 		//TODO: Modify in order to allow type route
 		return nil, errors.New("Type name must be one word identifier")
 	}
-	if o := isTypeLiteral(base[0]); o != nil {
+	if o := isTypeLiteral(base[0], allowany); o != nil {
 		if len(parts) > 1 {
 			return nil, errors.New("Literal must have no child type")
 		}
@@ -59,15 +59,15 @@ func genericSolveType(parts [][]Token, parser *Parser) (OBJType, error) {
 	}
 	switch base[0].Data {
 	case "Vec":
-		return solveTypeVec(parts[1:], parser)
+		return solveTypeVec(parts[1:], parser, allowany)
 	case "Map":
-		return solveTypeMap(parts[1:], parser)
+		return solveTypeMap(parts[1:], parser, allowany)
 	default:
 		return nil, errors.New(fmt.Sprintf("Type not available: %s", base[0].Data))
 	}
 }
 
-func isTypeLiteral(tk Token) OBJType {
+func isTypeLiteral(tk Token, allowany bool) OBJType {
 	if tk.Kind != IdToken {
 		return nil
 	}
@@ -80,29 +80,31 @@ func isTypeLiteral(tk Token) OBJType {
 		return Bool
 	case Str.TypeName():
 		return Str
-		/*case Any.TypeName(): //Any type may generate undefined behaviour
-		return Any*/
+	case Any.TypeName():
+		if allowany {
+			return Any
+		}
 	}
 	return nil
 }
 
-func solveTypeMap(parts [][]Token, parser *Parser) (OBJType, error) {
-	inner, e := genericSolveType(parts, parser)
+func solveTypeMap(parts [][]Token, parser *Parser, allowany bool) (OBJType, error) {
+	inner, e := genericSolveType(parts, parser, allowany)
 	if e != nil {
 		return nil, e
 	}
 	return MapOf(inner), nil
 }
 
-func solveTypeVec(parts [][]Token, parser *Parser) (OBJType, error) {
-	inner, e := genericSolveType(parts, parser)
+func solveTypeVec(parts [][]Token, parser *Parser, allowany bool) (OBJType, error) {
+	inner, e := genericSolveType(parts, parser, allowany)
 	if e != nil {
 		return nil, e
 	}
 	return VecOf(inner), nil
 }
 
-func solveTypeTuple(parts [][]Token, parser *Parser) (OBJType, error) {
+func solveTypeTuple(parts [][]Token, parser *Parser, allowany bool) (OBJType, error) {
 	if len(parts) == 0 {
 		return nil, errors.New("Wrong tuple generation type call")
 	}
@@ -119,7 +121,7 @@ func solveTypeTuple(parts [][]Token, parser *Parser) (OBJType, error) {
 	}
 	types := make([]OBJType, 0)
 	for _, typedef := range tokens {
-		result, e := solveContextedTypeFromTokens(typedef, parser)
+		result, e := solveContextedTypeFromTokens(typedef, parser, allowany)
 		if e != nil {
 			return nil, e
 		}

@@ -253,7 +253,7 @@ type syntaxTypeCreation struct {
 }
 
 func (s *syntaxTypeCreation) runIntoStack(p *Parser, stack *[]Instruction) (OBJType, error) {
-	obj, e := solveContextedTypeFromTokens(s.typeref, p)
+	obj, e := solveContextedTypeFromTokens(s.typeref, p, false)
 	if e != nil {
 		return nil, e
 	}

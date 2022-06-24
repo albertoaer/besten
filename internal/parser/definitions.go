@@ -20,6 +20,7 @@ var (
 	DOT            = Token{Data: ".", Kind: SpecialToken}
 	INDEXOP        = Token{Data: "[]", Kind: OperatorToken}
 	ASSIGN         = Token{Data: "=", Kind: OperatorToken}
+	NOTOP          = Token{Data: "!", Kind: OperatorToken}
 	DOUBLES        = Token{Data: ":", Kind: SpecialToken}
 	SPLITTER       = Token{Data: "|", Kind: OperatorToken}
 	COMA           = Token{Data: ",", Kind: SpecialToken}
