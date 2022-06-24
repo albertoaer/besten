@@ -86,6 +86,9 @@ func CompareTypes(a, b OBJType) bool {
 	if a.Primitive() == ANY || b.Primitive() == ANY {
 		return true
 	}
+	if !a.Module().Is(b.Module()) {
+		return false
+	}
 	if a.Primitive() == ALIAS || b.Primitive() == ALIAS {
 		return a.TypeName() == b.TypeName()
 	}
@@ -100,7 +103,9 @@ func CompareTypes(a, b OBJType) bool {
 	switch a.Primitive() {
 	case VECTOR, MAP, VARIADIC:
 		return CompareTypes(a.Items(), b.Items())
-	case STRUCT, TUPLE:
+	case STRUCT:
+		return a.TypeName() == b.TypeName() && CompareArrayOfTypes(a.FixedItems(), b.FixedItems())
+	case TUPLE:
 		return CompareArrayOfTypes(a.FixedItems(), b.FixedItems())
 	}
 	return true
