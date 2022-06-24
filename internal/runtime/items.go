@@ -34,6 +34,22 @@ func (fs *FunctionStack) Pop() Object {
 	return fs.data[fs.index]
 }
 
+func (fs *FunctionStack) PopN(n int) []Object {
+	if fs.index < n {
+		panic(errors.New("Not enough elements in the stack"))
+	}
+	o := make([]Object, n)
+	for i := 0; i < n; i++ {
+		o[i] = fs.data[fs.index-i-1]
+	}
+	fs.index -= n
+	return o
+}
+
+func (fs *FunctionStack) Offset(r int) {
+	fs.index += r
+}
+
 func (fs *FunctionStack) Clone() *FunctionStack {
 	fn := NewFunctionStack(uint(len(fs.data)))
 	fn.index = fs.index
@@ -79,49 +95,11 @@ type Environment struct {
 	args [8]Object
 }
 
-func EnvironmentForCall(fs *FunctionStack, variables int, varargs bool) (Environment, error) {
-	extra := 0
-	items := Environment{}
-	var varargsvec VecT
-	for i := 0; i < variables+extra; i++ {
+func (env *Environment) ForCall(fs *FunctionStack, variables int) {
+	for i := 0; i < variables; i++ {
 		o := fs.Pop()
-		if i == variables-1 && varargs {
-			i, e := o.(int)
-			if !e {
-				return items, errors.New("Expecting number of arguments")
-			}
-			extra = i
-			varargsvec = MakeVec()
-			items.args[i] = varargsvec
-		} else if i > variables-1 && varargs {
-			*varargsvec = append(*varargsvec, o)
-		} else {
-			items.args[i] = o
-		}
+		env.args[i] = o
 	}
-	return items, nil
-}
-
-func (env *Environment) ForCall(fs *FunctionStack, variables int, varargs bool) error {
-	extra := 0
-	var varargsvec VecT
-	for i := 0; i < variables+extra; i++ {
-		o := fs.Pop()
-		if i == variables-1 && varargs {
-			i, e := o.(int)
-			if !e {
-				return errors.New("Expecting number of arguments")
-			}
-			extra = i
-			varargsvec = MakeVec()
-			env.args[i] = varargsvec
-		} else if i > variables-1 && varargs {
-			*varargsvec = append(*varargsvec, o)
-		} else {
-			env.args[i] = o
-		}
-	}
-	return nil
 }
 
 func (env *Environment) GetEnvironment(idx int) Object {

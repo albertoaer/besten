@@ -48,12 +48,9 @@ func (i Instruction) Fragment() []Instruction {
 type Fragment []Instruction
 
 type Symbol struct {
-	Name      string   //fragment name
-	Source    Fragment //fragment
-	BuiltInfo struct {
-		Args    int
-		Varargs bool
-	}
+	Name   string   //fragment name
+	Source Fragment //fragment
+	Args   int
 }
 
 func (s *Symbol) Append(i Instruction) {

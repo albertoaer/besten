@@ -87,7 +87,8 @@ const (
 	APP = 166 //Appends element at the end of a vector
 	SVI = 167 //Set vector item at position
 	DMI = 168 //Delete map item
-	CSE = 169 //Collapse stack elements
+	PFV = 169 //Pop from vector
+	CSE = 171 //Collapse stack elements
 
 	//SIZE
 
@@ -196,6 +197,7 @@ func init() {
 	opNumTable[APP] = 2
 	opNumTable[SVI] = 3
 	opNumTable[DMI] = 2
+	opNumTable[PFV] = 1
 	opNumTable[CSE] = 1
 
 	//SIZE

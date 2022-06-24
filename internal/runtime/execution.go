@@ -42,9 +42,7 @@ func (vm *VM) spawn(parent PID, fr string, stack *FunctionStack) (PID, error) {
 	}
 	callstack := NewCallStack(20000)
 	env, locals := callstack.GetAvailableItems()
-	if err := env.ForCall(stack, sym.BuiltInfo.Args, sym.BuiltInfo.Varargs); err != nil {
-		return nil, err
-	}
+	env.ForCall(stack, sym.Args)
 	process := &Process{vm, parent, nil, 0, sym, stack,
 		make(chan error), callstack, env, locals}
 	go process.run()
@@ -135,9 +133,7 @@ func (proc *Process) JumpToFragment(name string) {
 	if proc.symbol.Name != name {
 		proc.symbol = proc.machine.symbols[name]
 	}
-	if err := proc.env.ForCall(proc.functionstack, proc.symbol.BuiltInfo.Args, proc.symbol.BuiltInfo.Varargs); err != nil {
-		panic(err)
-	}
+	proc.env.ForCall(proc.functionstack, proc.symbol.Args)
 	proc.pc = 0
 }
 
@@ -340,17 +336,17 @@ func (proc *Process) run() {
 			case DMI:
 				m := fstack.a(ins).(MapT)
 				delete(m, fstack.a(ins).(string))
+			case PFV:
+				v := fstack.a(ins).(VecT)
+				fstack.Push((*v)[0])
+				*v = (*v)[1:]
 			case CSE:
-				vec := make([]Object, 0)
-				var vecref VecT = &vec
 				sz := fstack.a(ins).(int)
 				if sz < 0 {
 					panic("Trying to collapse negative number of elements")
 				}
-				for i := 0; i < sz; i++ {
-					res := fstack.Pop()
-					*vecref = append(*vecref, res)
-				}
+				vec := fstack.PopN(sz)
+				var vecref VecT = &vec
 				fstack.Push(vecref)
 			//SIZE
 			case SOS:
