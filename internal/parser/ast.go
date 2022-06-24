@@ -113,6 +113,49 @@ func (s *syntaxRoute) runIntoStack(p *Parser, stack *[]Instruction) (OBJType, er
 	return tp, err
 }
 
+func (s *syntaxRoute) runIntoStackSet(p *Parser, stack *[]Instruction, objtype OBJType) error {
+	if len(s.route) == 0 {
+		return errors.New("No route provided")
+	}
+	var tp OBJType
+	var err error
+	route := s.route
+	if s.origin != nil {
+		tp, err = s.origin.runIntoStack(p, stack)
+		if err != nil {
+			return err
+		}
+	} else if len(route) == 1 {
+		var ins Instruction
+		ins, err = p.currentScope().SetVariableIns(route[0], objtype)
+		if err != nil {
+			return err
+		}
+		*stack = append(*stack, ins)
+	} else {
+		var ins Instruction
+		ins, tp, err = p.currentScope().GetVariableIns(route[0])
+		if err != nil {
+			return err
+		}
+		*stack = append(*stack, ins)
+		route = s.route[1:]
+		for i, r := range route {
+			if t, e := tp.NamedItems()[r]; e {
+				if i == len(route)-1 {
+					*stack = append(*stack, MKInstruction(ATT, r))
+				} else {
+					tp = t
+					*stack = append(*stack, MKInstruction(PRP, r))
+				}
+			} else {
+				return errors.New(fmt.Sprintf("Type %s does not have property %s", tp.TypeName(), r))
+			}
+		}
+	}
+	return err
+}
+
 type syntaxCall struct {
 	relation *syntaxRoute
 	operands []syntaxBranch
@@ -211,8 +254,27 @@ func (s *syntaxHighLevelCall) runIntoStack(p *Parser, stack *[]Instruction) (OBJ
 	return ret, err
 }
 
+type syntaxAssignment struct {
+	value  syntaxBranch
+	assign syntaxBranchGetSet
+	owner  *SyntaxTree
+}
+
+func (s *syntaxAssignment) runIntoStack(p *Parser, stack *[]Instruction) (OBJType, error) {
+	objt, err := s.value.runIntoStack(p, stack)
+	if err != nil {
+		return nil, err
+	}
+	return Void, s.assign.runIntoStackSet(p, stack, objt)
+}
+
 type syntaxBranch interface {
 	runIntoStack(p *Parser, stack *[]Instruction) (OBJType, error)
+}
+
+type syntaxBranchGetSet interface {
+	runIntoStack(p *Parser, stack *[]Instruction) (OBJType, error)
+	runIntoStackSet(p *Parser, stack *[]Instruction, objtype OBJType) error
 }
 
 type SyntaxTree struct {
@@ -228,10 +290,38 @@ func (s *SyntaxTree) runIntoStack(stack *[]Instruction) (OBJType, error) {
 	return s.root.runIntoStack(s.parser, stack)
 }
 
-func GenerateTree(parser *Parser, tks []Token, children []Block, in_ret bool) (tree *SyntaxTree, err error) {
-	tree = &SyntaxTree{nil, parser, in_ret}
-	tree.root, err = tree.generateFirstLevelExpression(tks, children)
+func GenerateTree(parser *Parser, tks []Token, children []Block, returning bool) (tree *SyntaxTree, err error) {
+	tree = &SyntaxTree{nil, parser, returning}
+	if returning {
+		tree.root, err = tree.generateFirstLevelExpression(tks, children)
+	} else {
+		tree.root, err = tree.splitAssignmentExpression(tks, children)
+	}
 	return
+}
+
+func (s *SyntaxTree) splitAssignmentExpression(tks []Token, children []Block) (syntaxBranch, error) {
+	if len(tks) == 0 {
+		return nil, errors.New("No expression to parse")
+	}
+	ttks, err := splitByToken(tks, func(tk Token) bool { return tk == ASSIGN }, []struct {
+		open  Token
+		close Token
+	}{{POPEN, PCLOSE}, {BOPEN, BCLOSE}}, false, false, false)
+	if err != nil {
+		return nil, err
+	}
+	if len(ttks) > 2 {
+		return nil, errors.New("Multiassignment is not implemented")
+	}
+	rightterm, err := s.generateFirstLevelExpression(ttks[len(ttks)-1], children)
+	if err != nil {
+		return nil, err
+	}
+	if len(ttks) == 1 {
+		return rightterm, nil
+	}
+	return s.identifyAssignmentExpressionBranch(ttks[0], rightterm)
 }
 
 func (s *SyntaxTree) generateFirstLevelExpression(tks []Token, children []Block) (syntaxBranch, error) {
@@ -316,6 +406,14 @@ func (s *SyntaxTree) generateOperatorBranch(tks [][]Token) (syntaxBranch, error)
 		opb.operands = append(opb.operands, op)
 	}
 	return &opb, nil
+}
+
+func (s *SyntaxTree) identifyAssignmentExpressionBranch(tks []Token, obj syntaxBranch) (syntaxBranch, error) {
+	route, e := getRoute(tks)
+	if e != nil {
+		return nil, e
+	}
+	return &syntaxAssignment{obj, &syntaxRoute{nil, route, s}, s}, nil
 }
 
 //Detects if it's an object literal, function call, etc and generates it

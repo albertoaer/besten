@@ -102,10 +102,24 @@ func (p *Parser) parseFunction(block Block, operator bool) error {
 
 func (p *Parser) parseDefinition(block Block, constant bool) error {
 	tks := discardOne(block.Tokens)
-	tks, e := expect(tks, ASSIGN)
+	id, tks, e := expectT(tks, IdToken)
 	if e != nil {
 		return e
 	}
+	tks, e = expect(tks, ASSIGN)
+	if e != nil {
+		return e
+	}
+	ret, e := p.parseExpression(tks, block.Children, true)
+	if e != nil {
+		return e
+	}
+	p.currentScope().CreateVariable(id.Data, ret, !constant, false)
+	ins, e := p.currentScope().SetVariableIns(id.Data, ret)
+	if e != nil {
+		return e
+	}
+	p.addInstruction(ins)
 	return nil
 }
 
@@ -327,18 +341,11 @@ func (p *Parser) parseBlock(block Block, scp ScopeCtx) error {
 		return p.parseByKeyword(block.Tokens[0].Data, block, scp)
 	}
 	if scp == Function {
-		if nextT(block.Tokens, IdToken) {
-			//Still using id for assignement but maybe will be treat as expression in the future
-			return p.parseById(block, scp)
-		} else {
-			//No keyword, always a expression
-			//TODO: Include expression assignment in ast
-			ret, e := p.parseExpression(block.Tokens, block.Children, false)
-			if ret != Void {
-				p.addInstruction(MKInstruction(POP))
-			}
-			return e
+		ret, e := p.parseExpression(block.Tokens, block.Children, false)
+		if ret != Void {
+			p.addInstruction(MKInstruction(POP))
 		}
+		return e
 	}
 	return errors.New(fmt.Sprintf("Unexpected token %s", block.Tokens[0].Data))
 }
