@@ -22,9 +22,6 @@ func main() {
 	flag.Parse()
 	if flag.NArg() > 0 {
 		file = flag.Arg(0)
-		if flag.NArg() != 1 {
-			panic("Expecting just one source")
-		}
 	}
 	if len(file) == 0 {
 		panic("No file provided")
