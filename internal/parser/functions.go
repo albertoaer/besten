@@ -197,11 +197,12 @@ func (collection *FunctionCollection) AddDynamicSymbol(name string, dsym Dynamic
 	if !e {
 		v = &NamedFunctionContainer{dsym, make(map[int][]*FunctionSymbol), make([]*FunctionSymbol, 0), -1}
 		collection.functions[name] = v
+	} else {
+		if v.dynamic != nil {
+			return errors.New("Dynamic symbol already defined")
+		}
+		v.dynamic = dsym
 	}
-	if v.dynamic != nil {
-		return errors.New("Dynamic symbol already defined")
-	}
-	v.dynamic = dsym
 	return nil
 }
 
