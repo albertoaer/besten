@@ -251,14 +251,10 @@ func (proc *Process) run() {
 				fstack.Push(boolNum(fstack.a(ins).(int) == fstack.b(ins).(int)))
 			case EQD:
 				fstack.Push(boolNum(fstack.a(ins).(float64) == fstack.b(ins).(float64)))
-			case EQS:
-				fstack.Push(boolNum(fstack.a(ins).(string) == fstack.b(ins).(string)))
 			case NQI:
 				fstack.Push(boolNum(fstack.a(ins).(int) != fstack.b(ins).(int)))
 			case NQD:
 				fstack.Push(boolNum(fstack.a(ins).(float64) != fstack.b(ins).(float64)))
-			case NQS:
-				fstack.Push(boolNum(fstack.a(ins).(string) != fstack.b(ins).(string)))
 			case ILE:
 				fstack.Push(boolNum(fstack.a(ins).(int) < fstack.b(ins).(int)))
 			case DLE:
@@ -275,7 +271,7 @@ func (proc *Process) run() {
 				fstack.Push(boolNum(fstack.a(ins).(int) >= fstack.b(ins).(int)))
 			case DGQ:
 				fstack.Push(boolNum(fstack.a(ins).(float64) >= fstack.b(ins).(float64)))
-				//LOGIC
+			//LOGIC
 			case NOT:
 				fstack.Push(^fstack.a(ins).(int))
 			case AND:

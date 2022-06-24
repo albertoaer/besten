@@ -26,10 +26,8 @@ const (
 
 	EQI = 30 //equal ints
 	EQD = 31 //equal doubles
-	EQS = 32 //equal strings
 	NQI = 33 //equal ints
 	NQD = 34 //equal doubles
-	NQS = 35 //equal strings
 	ILE = 36 //int less
 	DLE = 37 //double less
 	IGR = 38 //int greater
