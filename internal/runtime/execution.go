@@ -35,15 +35,26 @@ func NewVM() *VM {
 	return vm
 }
 
-func (vm *VM) spawn(parent PID, fr string) PID {
-	process := &Process{vm, parent, nil, 0, vm.symbols[fr], vm.rootcontext.Open(), make([]Object, 0),
+func (vm *VM) spawn(parent PID, fr string, stack []Object) (PID, error) {
+	sym, ex := vm.symbols[fr]
+	if !ex {
+		return nil, errors.New(fmt.Sprintf("Symbol %s not found", fr))
+	}
+	process := &Process{vm, parent, nil, 0, sym, vm.rootcontext.Open(), stack,
 		make(chan error), NewCallStack(), make(map[string]*Context)}
 	go process.run()
-	return process
+	return process, nil
 }
 
-func (vm *VM) Spawn(fr string) PID {
-	return vm.spawn(nil, fr)
+func (vm *VM) Spawn(fr string) (PID, error) {
+	return vm.spawn(nil, fr, make([]Object, 0))
+}
+
+func (vm *VM) InitSpawn(fr string, stack []Object) (PID, error) {
+	if stack == nil {
+		stack = make([]Object, 0)
+	}
+	return vm.spawn(nil, fr, stack)
 }
 
 func (vm *VM) Wait(process PID) error {
@@ -82,7 +93,11 @@ Process Zone
 */
 
 func (proc *Process) Spawn(fr string) PID {
-	return proc.machine.spawn(proc, fr)
+	child, err := proc.machine.spawn(proc, fr, proc.functionstack)
+	if err != nil {
+		panic(err)
+	}
+	return child
 }
 
 func (proc *Process) Get(name string) (Object, error) {
@@ -149,11 +164,15 @@ func (proc *Process) Invoke(name string) {
 	if !ex {
 		panic(fmt.Sprintf("No embedded function %s to invoke", name))
 	}
+	proc.DirectInvoke(fn)
+}
+
+func (proc *Process) DirectInvoke(fn EmbeddedFunction) {
 	args, err := proc.fetchArguments(uint(fn.ArgCount))
 	if err != nil {
 		panic(err)
 	}
-	r := fn.Function(args)
+	r := fn.Function(args...)
 	if fn.Returns {
 		proc.Push(r)
 	}
@@ -189,7 +208,7 @@ func (proc *Process) fetchArguments(num uint, operands ...Object) (args []Object
 func (proc *Process) runInstruction(ins Instruction, addr int) (err error) {
 	fn, found := operations[ins.Code]
 	if !found {
-		err = errors.New("No operation matchs the instruction code provided")
+		err = errors.New(fmt.Sprintf("No operation fetched for opcode: %d", ins.Code))
 	} else {
 		defer func() {
 			if e := recover(); e != nil {

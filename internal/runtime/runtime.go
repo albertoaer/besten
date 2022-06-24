@@ -15,6 +15,11 @@ type Object interface{}
 type MapT map[string]Object
 type VecT *[]Object
 
+func MakeVec(items ...Object) VecT {
+	var vec []Object = items
+	return VecT(&vec)
+}
+
 type Instruction struct {
 	Code     ICode
 	Operands []Object

@@ -1,11 +1,17 @@
 package runtime
 
+import (
+	"fmt"
+	"strconv"
+)
+
 type ICode uint16
 
 const (
-	NOP ICode = 0
+	NOP ICode = 0 //No operation
 
 	//ARITHMETIC
+
 	ADD  = 10
 	SUB  = 11
 	MUL  = 12
@@ -17,25 +23,34 @@ const (
 	DIVF = 18
 
 	//CONVERSION
-	ITD = 20
-	DTI = 21
+
+	ITD = 20 //int to double
+	DTI = 21 //double to int
+	IRE = 22 //int representation (to string)
+	DRE = 23 //double representation (to string)
+	IPA = 24 //int parse (to int)
+	DPA = 25 //double parse (to double)
 
 	//EQUALITY
+
 	EQI = 30
 	EQD = 31
 	EQS = 32
 
 	//LOGIC
+
 	NOT = 40
 	AND = 41
 	OR  = 42
 	XOR = 43
 
 	//STRINGS
+
 	CCS = 60 //Concatenate strings
 	CAI = 61 //Char at index
 
 	//Context
+
 	OPN = 80 //Creates context at the top, forking the upper one
 	CLS = 81 //Closes context
 	GET = 82 //Gets variable from context
@@ -44,6 +59,7 @@ const (
 	RSC = 85 //Recover saved context
 
 	//Stack
+
 	PSH = 90 //Push top
 	POP = 91 //Pop top
 	CLR = 92 //Clear stack
@@ -51,6 +67,7 @@ const (
 	SWT = 94 //Switch two last
 
 	//CONTROl
+
 	CLL = 120 //Jumps into symbol address and saves actual address
 	JMP = 121 //Jumps into symbol address
 	RET = 122 //Return to last address in the stack
@@ -61,6 +78,7 @@ const (
 	MVF = 127 //Moves pc relative to position if false
 
 	//MAPS AND VECTORS
+
 	KVC = 160 //Creates a map
 	PRP = 161 //Gets value from map
 	ATT = 162 //Attaches value to map
@@ -73,10 +91,12 @@ const (
 	CSE = 169 //Collapse stack elements
 
 	//STATE
+
 	SWR = 200 //State write
 	SRE = 201 //State read
 
 	//Threads
+
 	FRK = 240 //Forks, next line will run in a different thread (stack is copied) and adds pid to father thread
 	ELL = 241 //Ends life line, stops current thread
 	FPI = 242 //Pushes to stack the father pid
@@ -84,8 +104,10 @@ const (
 	AWA = 244 //Blocks threads until message (pushed into the stack)
 
 	//Interaction
+
 	INV = 280 //Invokes native function
 	SYS = 281 //Invokes a system call
+	IFD = 282 //Invocation for debugging, run directly methods, NOT SAFE!
 )
 
 type Operation struct {
@@ -133,6 +155,26 @@ func init() {
 	}, 1}
 	operations[DTI] = Operation{func(proc *Process, l ...Object) {
 		proc.Push(int(l[0].(float64)))
+	}, 1}
+	operations[IRE] = Operation{func(proc *Process, l ...Object) {
+		proc.Push(strconv.Itoa(l[0].(int)))
+	}, 1}
+	operations[DRE] = Operation{func(proc *Process, l ...Object) {
+		proc.Push(fmt.Sprintf("%g", l[0].(float64)))
+	}, 1}
+	operations[IPA] = Operation{func(proc *Process, l ...Object) {
+		i, e := strconv.Atoi(l[0].(string))
+		if e != nil {
+			panic(e)
+		}
+		proc.Push(i)
+	}, 1}
+	operations[DPA] = Operation{func(proc *Process, l ...Object) {
+		f, e := strconv.ParseFloat(l[0].(string), 64)
+		if e != nil {
+			panic(e)
+		}
+		proc.Push(f)
 	}, 1}
 
 	//EQUALITY
@@ -209,6 +251,7 @@ func init() {
 		proc.Push(l[0])
 	}, 1}
 	operations[POP] = Operation{func(proc *Process, l ...Object) {
+		//Just consumes the value
 	}, 1}
 	operations[CLR] = Operation{func(proc *Process, l ...Object) {
 		proc.Clear()
@@ -322,5 +365,8 @@ func init() {
 	//Interaction
 	operations[INV] = Operation{func(proc *Process, l ...Object) {
 		proc.Invoke(l[0].(string))
+	}, 1}
+	operations[IFD] = Operation{func(proc *Process, l ...Object) {
+		proc.DirectInvoke(l[0].(EmbeddedFunction))
 	}, 1}
 }
