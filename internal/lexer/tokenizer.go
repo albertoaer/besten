@@ -26,6 +26,7 @@ type Token struct {
 
 var string_mark rune = '"'
 var decimal_mark rune = '.'
+var negative_mark rune = '-'
 var keywords []string = []string{"require", "import", "struct", "fn", "op", "do", "val", "var", "for", "while", "collect", "done", "throw", "catch"}
 
 func strArrContains(arr []string, elem string) bool {
@@ -70,7 +71,7 @@ const (
 )
 
 //action: It the way tokens will be treat after mask fushions
-func updateMask(mask TokenType, char rune) (newmask TokenType, action int8, err error) {
+func updateMask(previous []rune, mask TokenType, char rune) (newmask TokenType, action int8, err error) {
 	newmask = mask
 	if unicode.IsSymbol(char) || unicode.IsMark(char) || unicode.IsPunct(char) {
 		if char == decimal_mark && mask == IntegerToken {
@@ -89,6 +90,10 @@ func updateMask(mask TokenType, char rune) (newmask TokenType, action int8, err 
 		}
 	} else if digit(char) {
 		if mask == DecimalToken || mask == IntegerToken || mask == IdToken {
+			action = mergeTokens
+		} else if mask == OperatorToken && len(previous) == 1 && previous[0] == negative_mark {
+			//TODO: Check out negative implementation, maybe operator would be better
+			newmask = IntegerToken
 			action = mergeTokens
 		} else {
 			action = pushToken
@@ -146,7 +151,7 @@ func tokens(line string) (tokens []Token, err error) {
 
 		//If it is not a separator, we operate with it
 		if !sep && r != '#' {
-			m, o, e := updateMask(mask, r)
+			m, o, e := updateMask(value, mask, r)
 			if e != nil {
 				err = e
 				return
