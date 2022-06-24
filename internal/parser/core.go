@@ -20,10 +20,7 @@ func (p *Parser) parseImport(block Block) error {
 	}
 	mod, e := p.env.LoadModule(p.envId, name.Data)
 	if e == nil && mod != nil {
-		if nextT(tks, IdToken) {
-			p.rootscope.ImportedModules[tks[0].Data] = mod
-			tks = discardOne(tks)
-		} else if next(tks, DIRECT) {
+		if !isNext(tks) {
 			scope, e := mod.TryGetScope()
 			if e != nil {
 				return e
@@ -31,9 +28,26 @@ func (p *Parser) parseImport(block Block) error {
 			if e := p.currentScope().ImportFrom(scope); e != nil {
 				return e
 			}
+		} else if nextT(tks, IdToken) {
+			p.rootscope.ImportedModules[tks[0].Data] = mod
+			tks = discardOne(tks)
+		} else if next(tks, FN) || next(tks, OP) {
+			scope, e := mod.TryGetScope()
+			if e != nil {
+				return e
+			}
+			if next(tks, OP) {
+				if e := p.currentScope().Operators.CopyFrom(scope.Operators); e != nil {
+					return e
+				}
+			} else {
+				if e := p.currentScope().Functions.CopyFrom(scope.Functions); e != nil {
+					return e
+				}
+			}
 			tks = discardOne(tks)
 		} else {
-			return errors.New("Expecting direct import or named module import")
+			return unexpect(tks)
 		}
 	} else {
 		return e
