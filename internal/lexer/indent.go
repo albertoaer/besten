@@ -36,10 +36,9 @@ func indentSolver(arr []string, indent string) (remain string, relative int, err
 	return
 }
 
-func getRawStructure(src io.Reader) (blocks []dirtyBlock, err error) {
+func getRawStructure(src io.Reader) (blocks []dirtyBlock, linenum int, err error) {
 	reader := bufio.NewReader(src)
 	line := ""
-	linenum := 0
 	var indent_array []string
 
 	active := &dirtyBlock{-1, "", blocks, nil}
