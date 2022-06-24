@@ -1,7 +1,6 @@
 package parser
 
 import (
-	"errors"
 	"fmt"
 
 	. "github.com/Besten/internal/lexer"
@@ -48,9 +47,6 @@ func (p *Parser) parseArguments(tks []Token) (args []string, types []OBJType, us
 		n := v
 		if next(n, QUOTE) {
 			if i == len(argtk)-1 {
-				if usetypes {
-					err = errors.New("Varargs must be template")
-				}
 				varargs = true
 				n = discardOne(n)
 			} else {
@@ -70,9 +66,6 @@ func (p *Parser) parseArguments(tks []Token) (args []string, types []OBJType, us
 		}
 		args = append(args, nm.Data)
 		if i == 0 && len(n) > 0 {
-			if varargs {
-				err = errors.New("Varargs must be template")
-			}
 			usetypes = true
 			types = make([]OBJType, 0)
 		}
