@@ -35,7 +35,8 @@ const (
 func NewParser(env ImportEnv) *Parser {
 	p := &Parser{env, env.Scope(), make(map[string]*Scope), make(map[string]Symbol), make([]string, 0), ""}
 	p.addSymbols(env.Symbols())
-	injectBuiltinOperators(p.rootscope.OpSymbols)
+	injectBuiltinFunctions(p.rootscope.Functions)
+	injectBuiltinOperators(p.rootscope.Operators)
 	return p
 }
 
@@ -119,14 +120,19 @@ func (p *Parser) closeScope() {
 	p.scopes[p.activeFragment()] = p.scopes[p.activeFragment()].Close()
 }
 
-func (p *Parser) GenerateCode(blocks []Block, modulename string) (map[string]Symbol, error) {
+func (p *Parser) ParseCode(blocks []Block, modulename string) error {
 	p.modulename = modulename
 	e := p.parseBlocks(blocks, Global)
-	if e != nil {
-		return nil, e
-	}
-	_, e = p.generateFunctionFromTemplate("main", false, []OBJType{VecOf(Str)})
-	return p.symbols, e
+	return e
+}
+
+func (p *Parser) GenerateFunction(name string) (string, error) {
+	sym, e := p.generateFunctionFromTemplate(name, false, []OBJType{VecOf(Str)})
+	return sym.CName, e
+}
+
+func (p *Parser) GetSymbols() map[string]Symbol {
+	return p.symbols
 }
 
 func generateUUID(name string) string {

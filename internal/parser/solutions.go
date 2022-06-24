@@ -28,19 +28,18 @@ func (p *Parser) solveFunctionCall(name string, operator bool, callers []OBJType
 func (p *Parser) findFunction(name string, operator bool, callers []OBJType) (sym FunctionSymbol, exists bool) {
 	exists = false
 	var vec []FunctionSymbol
-	var ex bool
 	if operator {
-		vec, ex = p.currentScope().OpSymbols[HeaderAlias{name, len(callers)}]
+		vec = p.currentScope().Operators.FindSymbol(name, len(callers))
 	} else {
-		vec, ex = p.currentScope().FunctionSymbols[HeaderAlias{name, len(callers)}]
+		vec = p.currentScope().Functions.FindSymbol(name, len(callers))
 	}
-	if !ex {
+	if vec == nil {
 		return //Function not found
 	}
 outer:
 	for i := range vec {
 		for e := 0; e < len(callers); e++ {
-			if callers[e] != vec[i].Args[e] {
+			if !CompareTypes(callers[e], vec[i].Args[e]) {
 				continue outer
 			}
 		}
@@ -53,23 +52,11 @@ outer:
 
 //Remember: This function checks is there is already a template for that name
 func (p *Parser) generateFunctionTemplate(name string, operator bool, template FunctionTemplate) error {
-	var ex bool
 	if operator {
-		_, ex = p.currentScope().OpTemplates[HeaderAlias{name, len(template.Args)}]
+		return p.currentScope().Operators.AddTemplate(name, template)
 	} else {
-		_, ex = p.currentScope().FunctionTemplates[HeaderAlias{name, len(template.Args)}]
+		return p.currentScope().Functions.AddTemplate(name, template)
 	}
-	if ex {
-		return errors.New(fmt.Sprintf("%s template already exists", name))
-	}
-	if operator {
-		p.currentScope().OpTemplates[HeaderAlias{name, len(template.Args)}] = template
-		p.currentScope().OpSymbols[HeaderAlias{name, len(template.Args)}] = make([]FunctionSymbol, 0)
-	} else {
-		p.currentScope().FunctionTemplates[HeaderAlias{name, len(template.Args)}] = template
-		p.currentScope().FunctionSymbols[HeaderAlias{name, len(template.Args)}] = make([]FunctionSymbol, 0)
-	}
-	return nil
 }
 
 var lambdaCount uint = 0
@@ -77,26 +64,26 @@ var lambdaCount uint = 0
 func (p *Parser) solveLambdaTemplate(template FunctionTemplate) string {
 	name := "lambda" + strconv.Itoa(int(lambdaCount))
 	lambdaCount++
-	p.currentScope().FunctionTemplates[HeaderAlias{name, len(template.Args)}] = template
-	p.currentScope().FunctionSymbols[HeaderAlias{name, len(template.Args)}] = make([]FunctionSymbol, 0)
+	if e := p.currentScope().Functions.AddTemplate(name, template); e != nil {
+		panic(e) //Unexpected behaviour, overwriting lambda
+	}
 	return name
 }
 
 //Remember: This function does not check if there is another function with that types
 func (p *Parser) generateFunctionFromTemplate(name string, operator bool, callers []OBJType) (sym FunctionSymbol, err error) {
-	var template FunctionTemplate
-	var exists bool
+	var template *FunctionTemplate
 	if operator {
-		template, exists = p.currentScope().OpTemplates[HeaderAlias{name, len(callers)}]
+		template = p.currentScope().Operators.FindTemplate(name, len(callers))
 	} else {
-		template, exists = p.currentScope().FunctionTemplates[HeaderAlias{name, len(callers)}]
+		template = p.currentScope().Functions.FindTemplate(name, len(callers))
 	}
-	if !exists {
-		name := "function"
+	if template == nil {
+		symboltype := "function"
 		if operator {
-			name = "operator"
+			symboltype = "operator"
 		}
-		err = errors.New(fmt.Sprintf("There is no %s for the requested arguments", name))
+		err = errors.New(fmt.Sprintf("There is %s symbol %s/%d for the requested arguments", symboltype, name, len(callers)))
 		return
 	}
 	compilename := generateUUID(name) + p.modulename
@@ -104,6 +91,7 @@ func (p *Parser) generateFunctionFromTemplate(name string, operator bool, caller
 	for i := range template.Args {
 		//Stack, invert order
 		p.addInstruction(runtime.MKInstruction(runtime.SET, template.Args[len(template.Args)-i-1]))
+		p.currentScope().Variables[template.Args[i]] = &Variable{callers[i], true}
 	}
 	err = p.parseBlocks(template.Children, Function)
 	if err != nil {

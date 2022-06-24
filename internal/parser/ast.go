@@ -70,15 +70,35 @@ type syntaxRoute struct {
 }
 
 func (s *syntaxRoute) runIntoStack(p *Parser, stack *[]Instruction) (OBJType, error) {
-	/*
-		case IdToken:
-			v, e := p.currentScope().Variables[s.token.Data]
-			if !e {
-				return Void, errors.New("Variable does not exists")
-			}
-			toret = v.Type
-			ins = MKInstruction(GET, s.token.Data)*/
-	return Void, nil
+	if len(s.route) == 0 {
+		return nil, errors.New("No route provided")
+	}
+	var tp OBJType
+	var err error
+	route := s.route
+	if s.origin != nil {
+		tp, err = s.origin.runIntoStack(p, stack)
+		if err != nil {
+			return Void, err
+		}
+	} else {
+		v, e := p.currentScope().Variables[route[0]]
+		if !e {
+			return Void, errors.New(fmt.Sprintf("Undefined variable: %s", route[0]))
+		}
+		*stack = append(*stack, MKInstruction(GET, route[0]))
+		route = s.route[1:]
+		tp = v.Type
+	}
+	for _, r := range route {
+		if t, e := tp.NamedItems()[r]; e {
+			tp = t
+			*stack = append(*stack, MKInstruction(PRP, r))
+		} else {
+			return Void, errors.New(fmt.Sprintf("Type %s does not have property %s", tp.TypeName(), r))
+		}
+	}
+	return tp, err
 }
 
 type syntaxCall struct {
@@ -87,7 +107,25 @@ type syntaxCall struct {
 }
 
 func (s *syntaxCall) runIntoStack(p *Parser, stack *[]Instruction) (OBJType, error) {
-	return Void, nil
+	if s.relation == nil || len(s.relation.route) == 0 {
+		return Void, errors.New("No way to fetch function")
+	}
+	if s.relation.origin != nil {
+		return Void, errors.New("A function must always be global defined")
+	}
+	if len(s.relation.route) > 1 {
+		return Void, errors.New("Not implemented function route navigation")
+	}
+	ops := make([]OBJType, len(s.operands))
+	for i := len(s.operands) - 1; i >= 0; i-- {
+		var e error
+		if ops[len(s.operands)-1-i], e = s.operands[i].runIntoStack(p, stack); e != nil {
+			return nil, e
+		}
+	}
+	ins, ret, err := p.solveFunctionCall(s.relation.route[0], false, ops)
+	*stack = append(*stack, ins)
+	return ret, err
 }
 
 type syntaxOpCall struct {
@@ -96,7 +134,16 @@ type syntaxOpCall struct {
 }
 
 func (s *syntaxOpCall) runIntoStack(p *Parser, stack *[]Instruction) (OBJType, error) {
-	return Void, nil
+	ops := make([]OBJType, len(s.operands))
+	for i := len(s.operands) - 1; i >= 0; i-- {
+		var e error
+		if ops[len(s.operands)-1-i], e = s.operands[i].runIntoStack(p, stack); e != nil {
+			return nil, e
+		}
+	}
+	ins, ret, err := p.solveFunctionCall(s.operator, true, ops)
+	*stack = append(*stack, ins)
+	return ret, err
 }
 
 type syntaxTypeCreation struct {
@@ -131,7 +178,7 @@ func (s *SyntaxTree) runIntoStack(stack *[]Instruction) (OBJType, error) {
 	if s.root == nil {
 		return Void, errors.New("No expression node to parse")
 	}
-	return Void, nil
+	return s.root.runIntoStack(s.parser, stack)
 }
 
 func GenerateTree(parser *Parser, tks []Token, children []Block) (tree *SyntaxTree, err error) {

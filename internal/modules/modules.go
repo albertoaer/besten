@@ -38,17 +38,41 @@ func (_ *Modules) Native(name string) (map[string]Symbol, *parser.Scope, error) 
 	return nil, parser.NewScope(), errors.New("Native modules not available yet")
 }
 
-func (m *Modules) File(name string) (symbols map[string]Symbol, scope *parser.Scope, err error) {
+func (m *Modules) FileParser(name string) (*parser.Parser, error) {
 	reader, err := os.Open(name)
 	if err != nil {
-		return
+		return nil, err
 	}
 	blocks, err := GetBlocks(reader)
 	if err != nil {
+		return nil, err
+	}
+	//prettyTokens(blocks, "")
+	module_parser := parser.NewParser(m)
+	err = module_parser.ParseCode(blocks, name)
+	return module_parser, err
+}
+
+func (m *Modules) File(name string) (symbols map[string]Symbol, scope *parser.Scope, err error) {
+	module_parser, e := m.FileParser(name)
+	if e != nil {
+		err = e
 		return
 	}
-	prettyTokens(blocks, "")
-	module_parser := parser.NewParser(m)
-	symbols, err = module_parser.GenerateCode(blocks, name)
+	symbols = module_parser.GetSymbols()
+	return
+}
+
+func (m *Modules) MainFile(name string) (symbols map[string]Symbol, cname string, err error) {
+	module_parser, e := m.FileParser(name)
+	if e != nil {
+		err = e
+		return
+	}
+	cname, err = module_parser.GenerateFunction("main")
+	if err != nil {
+		return
+	}
+	symbols = module_parser.GetSymbols()
 	return
 }

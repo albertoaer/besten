@@ -13,12 +13,12 @@ func main() {
 		MKInstruction(KVC),
 		MKInstruction(SET, "map"),
 		MKInstruction(PSH, 33),
-		MKInstruction(PSH, "Clave"),
+		MKInstruction(PSH, "key"),
 		MKInstruction(GET, "map"),
 		MKInstruction(ATT),
 	}
 	vm.LoadSymbol(Symbol{Name: "main", Source: program})
-	err := vm.Spawn("main")
+	_, err := vm.Spawn("main")
 	if err != nil {
 		panic(err)
 	}

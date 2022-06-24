@@ -48,17 +48,18 @@ func parseArguments(tks []Token) (args []string, varargs bool, err error) {
 }
 
 func (p *Parser) loadModuleAux(tks []Token, fn func(string) (map[string]Symbol, *Scope, error)) error {
-	tks = discardOne(tks)
+	/*tks = discardOne(tks)
 	t, tks, e := expectT(tks, IdToken)
 	if e != nil {
 		return e
 	}
 	if e := unexpect(tks); e != nil {
 		return e
-	}
-	f, s, e := fn(t.Data)
+	}*/
+	//TODO: Fix module inclusion
+	/*f, s, e := fn(t.Data)
 	p.addSymbols(f)
-	p.currentScope().Merge(s)
+	p.currentScope().Merge(s)*/
 	return nil
 }
 
@@ -104,6 +105,26 @@ func (p *Parser) parseDefinition(block Block, constant bool) error {
 	return nil
 }
 
+func (p *Parser) parseReturn(block Block) error {
+	tks := discardOne(block.Tokens)
+	if len(tks) != 0 {
+		ret, e := p.parseExpression(tks, block.Children)
+		if e != nil {
+			return e
+		}
+		if ret == Void {
+			return errors.New("No value returned")
+		}
+		if p.currentScope().ReturnType.Primitive() == VOID || CompareTypes(p.currentScope().ReturnType, ret) {
+			p.currentScope().ReturnType = ret
+		}
+	} else if p.currentScope().ReturnType.Primitive() != VOID {
+		return errors.New(fmt.Sprintf("Expecting return type: %s", p.currentScope().ReturnType.TypeName()))
+	}
+	p.addInstruction(MKInstruction(RET))
+	return nil
+}
+
 func (p *Parser) parseByKeyword(name string, block Block, scp ScopeCtx) error {
 	if scp == Global {
 		switch name {
@@ -111,6 +132,12 @@ func (p *Parser) parseByKeyword(name string, block Block, scp ScopeCtx) error {
 			return p.loadModuleAux(block.Tokens, p.env.Native)
 		case "import":
 			return p.loadModuleAux(block.Tokens, p.env.File)
+		}
+	}
+	if scp == Function {
+		switch name {
+		case "return":
+			return p.parseReturn(block)
 		}
 	}
 	switch name {
@@ -122,10 +149,6 @@ func (p *Parser) parseByKeyword(name string, block Block, scp ScopeCtx) error {
 	return errors.New(fmt.Sprintf("Unexpected token found: %s", name))
 }
 
-func (p *Parser) parseAssignement(tks []Token) error {
-	return nil
-}
-
 func (p *Parser) parseById(block Block, scp ScopeCtx) error {
 	tks, e := splitByToken(block.Tokens, func(tk Token) bool { return tk == ASSIGN }, make([]struct {
 		open  Token
@@ -135,7 +158,7 @@ func (p *Parser) parseById(block Block, scp ScopeCtx) error {
 		return e
 	}
 	if len(tks) > 2 {
-		return errors.New("Multiassignement is not implemented")
+		return errors.New("Multiassignment is not implemented")
 	}
 	t, e := p.parseExpression(tks[len(tks)-1], block.Children)
 	if e != nil {
@@ -145,7 +168,9 @@ func (p *Parser) parseById(block Block, scp ScopeCtx) error {
 		if t == Void {
 			return errors.New("No value returned")
 		}
-		return p.parseAssignement(tks[0])
+		//return p.parseAssignment(tks[0])
+	} else if t != Void {
+		p.addInstruction(MKInstruction(POP))
 	}
 	return nil
 }
@@ -163,7 +188,11 @@ func (p *Parser) parseBlock(block Block, scp ScopeCtx) error {
 			return p.parseById(block, scp)
 		} else {
 			//No keyword, always a expression
-			_, e := p.parseExpression(block.Tokens, block.Children)
+			//TODO: Include expression assignment in ast
+			ret, e := p.parseExpression(block.Tokens, block.Children)
+			if ret != Void {
+				p.addInstruction(MKInstruction(POP))
+			}
 			return e
 		}
 	}
