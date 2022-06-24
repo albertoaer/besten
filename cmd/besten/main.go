@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"os"
 
 	"github.com/Besten/internal/modules"
@@ -17,6 +18,12 @@ func args() []runtime.Object {
 }
 
 func main() {
+	var step string = "compilation"
+	defer func() {
+		if e := recover(); e != nil {
+			fmt.Printf("Besten error during %s: %s\n\t", step, e)
+		}
+	}()
 	var file string
 	flag.StringVar(&file, "file", "", "File to be compiled")
 	flag.Parse()
@@ -30,6 +37,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	step = "execution"
 	vm := runtime.NewVM()
 	vm.LoadSymbols(symbols)
 	/*{
