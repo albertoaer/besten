@@ -278,7 +278,7 @@ func (s *SyntaxTree) generateSecondLevelExpression(tks []Token) (syntaxBranch, e
 	ttks, err := splitByToken(tks, func(tk Token) bool { return tk.Kind == OperatorToken }, []struct {
 		open  Token
 		close Token
-	}{{POPEN, PCLOSE}, {BOPEN, BCLOSE}}, true, true)
+	}{{POPEN, PCLOSE}, {BOPEN, BCLOSE}}, true, true, false)
 	if err != nil {
 		return nil, err
 	}
@@ -351,7 +351,7 @@ func (s *SyntaxTree) identifyExpressionBranch(tks []Token) (syntaxBranch, error)
 			typenames, err := splitByToken(inner, func(t Token) bool { return t == SPLITTER }, make([]struct {
 				open  Token
 				close Token
-			}, 0), false, false)
+			}, 0), false, false, false)
 			e = err
 			preceded = &syntaxTypeCreation{typenames, s}
 		} else { //Indexation
@@ -429,7 +429,7 @@ func (s *SyntaxTree) generateFunctionCall(head []Token, callbody []Token) (synta
 	args, err := splitByToken(callbody, func(t Token) bool { return t == COMA }, []struct {
 		open  Token
 		close Token
-	}{{POPEN, PCLOSE}, {BOPEN, BCLOSE}}, false, false)
+	}{{POPEN, PCLOSE}, {BOPEN, BCLOSE}}, false, false, false)
 	if err != nil {
 		return nil, err
 	}
@@ -452,7 +452,7 @@ func (s *SyntaxTree) generateOperands(tks []Token) ([]syntaxBranch, error) {
 	ttks, err := splitByToken(tks, func(t Token) bool { return t == COMA }, []struct {
 		open  Token
 		close Token
-	}{{POPEN, PCLOSE}, {BOPEN, BCLOSE}}, false, false)
+	}{{POPEN, PCLOSE}, {BOPEN, BCLOSE}}, false, false, false)
 	if err != nil {
 		return nil, err
 	}
@@ -478,7 +478,7 @@ func splitFirstLevelFunctionCall(tks []Token, haslambda bool, children []Block) 
 	ttks, err := splitByToken(tks, func(t Token) bool { return t == DOUBLES }, []struct {
 		open  Token
 		close Token
-	}{{POPEN, PCLOSE}, {BOPEN, BCLOSE}}, true, false)
+	}{{POPEN, PCLOSE}, {BOPEN, BCLOSE}}, true, false, true)
 	switch len(ttks) {
 	case 0:
 		err = errors.New("No function to be parsed") //Weird
@@ -509,6 +509,12 @@ func substractModifiers(tks []Token) ([]Token, [][]Token, error) {
 	ttks, err := splitByToken(tks, func(t Token) bool { return t.Kind == KeywordToken && t != TRUE && t != FALSE }, []struct {
 		open  Token
 		close Token
-	}{{POPEN, PCLOSE}, {BOPEN, BCLOSE}}, true, true)
-	return ttks[0], ttks[1:], err
+	}{{POPEN, PCLOSE}, {BOPEN, BCLOSE}}, true, true, false)
+	if err != nil {
+		return nil, nil, err
+	}
+	if len(ttks) == 0 {
+		return make([]Token, 0), make([][]Token, 0), nil
+	}
+	return ttks[0], ttks[1:], nil
 }

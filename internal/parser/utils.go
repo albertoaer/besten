@@ -64,11 +64,12 @@ the key will split, the pairs of openers and closers will avoid the inner tokens
 other options:
 	allowvoid: allow empty token list between separators
 	lastmustkey: if it is true last token must be also a delimiter
+	lastsplit: if last is a key will add a void token array
 */
 func splitByToken(data []Token, key func(Token) bool, pairs []struct {
 	open  Token
 	close Token
-}, allowvoid, includekey bool) ([][]Token, error) {
+}, allowvoid, includekey bool, lastsplit bool) ([][]Token, error) {
 	res := make([][]Token, 0)
 	current := make([]Token, 0)
 	opened_idx := -1
@@ -95,12 +96,15 @@ mainloop:
 				}
 			}
 			if key(tk) {
-				if (!allowvoid && len(current) == 0) || i == len(data)-1 {
+				if (!allowvoid && len(current) == 0) || (!lastsplit && i == len(data)-1) {
 					return nil, errors.New(fmt.Sprintf("Unexpected token %s", tk.Data))
 				}
 				res = append(res, current)
 				if includekey {
 					res = append(res, []Token{tk})
+				}
+				if lastsplit && i == len(data)-1 {
+					res = append(res, make([]Token, 0))
 				}
 				current = make([]Token, 0)
 			} else {

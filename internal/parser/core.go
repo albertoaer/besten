@@ -15,7 +15,7 @@ func parseArguments(tks []Token) (args []string, varargs bool, err error) {
 	argtk, err := splitByToken(preargs, func(tk Token) bool { return tk == COMA }, make([]struct {
 		open  Token
 		close Token
-	}, 0), false, false)
+	}, 0), false, false, false)
 	if err != nil {
 		return
 	}
@@ -215,13 +215,49 @@ func (p *Parser) parseIf(block Block) error {
 	editpoint := p.addInstruction(MKInstruction(MVF))
 	begin := p.fragmentSize()
 	p.openScope()
+	p.addInstruction(MKInstruction(OPN))
 	e = p.parseBlocks(block.Children, Function)
 	if e != nil {
 		return e
 	}
+	p.addInstruction(MKInstruction(CLS))
 	p.closeScope()
 	end := p.fragmentSize()
 	p.editInstruction(editpoint, MKInstruction(MVF, end-begin))
+	return nil
+}
+
+func (p *Parser) parseWhile(block Block) error {
+	tks := discardOne(block.Tokens)
+	tks, r := readUntilToken(tks, DO)
+	whilestart := p.fragmentSize()
+	tp, e := p.parseExpression(tks, nil, false)
+	if e != nil {
+		return e
+	}
+	if tp.Primitive() != BOOL {
+		return errors.New("Expecting boolean expression")
+	}
+	tail, e := expect(r, DO)
+	if e != nil {
+		return e
+	}
+	if e := unexpect(tail); e != nil {
+		return e
+	}
+	editpoint := p.addInstruction(MKInstruction(MVF))
+	begin := p.fragmentSize()
+	p.openScope()
+	p.addInstruction(MKInstruction(OPN))
+	e = p.parseBlocks(block.Children, Function)
+	if e != nil {
+		return e
+	}
+	p.addInstruction(MKInstruction(CLS))
+	p.closeScope()
+	end := p.fragmentSize()
+	p.addInstruction(MKInstruction(MVR, whilestart-end-1))
+	p.editInstruction(editpoint, MKInstruction(MVF, end-begin+1))
 	return nil
 }
 
@@ -246,6 +282,8 @@ func (p *Parser) parseByKeyword(name string, block Block, scp ScopeCtx) error {
 			return p.parseDirect(block)
 		case "if":
 			return p.parseIf(block)
+		case "while":
+			return p.parseWhile(block)
 		case "else":
 			return p.parseElse(block)
 		}
@@ -263,7 +301,7 @@ func (p *Parser) parseById(block Block, scp ScopeCtx) error {
 	tks, e := splitByToken(block.Tokens, func(tk Token) bool { return tk == ASSIGN }, make([]struct {
 		open  Token
 		close Token
-	}, 0), false, false)
+	}, 0), false, false, false)
 	if e != nil {
 		return e
 	}
