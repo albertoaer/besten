@@ -31,14 +31,17 @@ const (
 	EQI = 30 //equal ints
 	EQD = 31 //equal doubles
 	EQS = 32 //equal strings
-	ILE = 33 //int less
-	DLE = 34 //double less
-	IGR = 35 //int greater
-	DGR = 36 //double greater
-	ILQ = 37 //int less equals
-	DLQ = 38 //double less equals
-	IGQ = 39 //int greater equals
-	DGQ = 40 //double greater equals
+	NQI = 33 //equal ints
+	NQD = 34 //equal doubles
+	NQS = 35 //equal strings
+	ILE = 36 //int less
+	DLE = 37 //double less
+	IGR = 38 //int greater
+	DGR = 39 //double greater
+	ILQ = 40 //int less equals
+	DLQ = 41 //double less equals
+	IGQ = 42 //int greater equals
+	DGQ = 43 //double greater equals
 
 	//LOGIC
 
@@ -148,6 +151,9 @@ func init() {
 	opNumTable[EQI] = 2
 	opNumTable[EQD] = 2
 	opNumTable[EQS] = 2
+	opNumTable[NQI] = 2
+	opNumTable[NQD] = 2
+	opNumTable[NQS] = 2
 	opNumTable[ILE] = 2
 	opNumTable[DLE] = 2
 	opNumTable[IGR] = 2
