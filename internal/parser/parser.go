@@ -123,6 +123,12 @@ func (p *Parser) openScope() {
 	p.scopes[p.activeFragment()] = item
 }
 
+func (p *Parser) openForeignScope(s *Scope) {
+	item := p.scopes[p.activeFragment()]
+	item.current = item.current.OpenForeignScope(s)
+	p.scopes[p.activeFragment()] = item
+}
+
 func (p *Parser) closeScope() (err error) {
 	item := p.scopes[p.activeFragment()]
 	item.current, err = item.current.Close()

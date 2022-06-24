@@ -279,6 +279,12 @@ func (s *Scope) ImportFrom(other *Scope) error {
 	return s.Functions.CopyFrom(other.Functions)
 }
 
+func (s *Scope) OpenForeignScope(other *Scope) *Scope {
+	n := *other
+	n.parent = s
+	return &n
+}
+
 func (s *Scope) CheckClose() error {
 	for name, v := range s.Variables {
 		if v.Dependency == s && !v.Used && !v.Arg {

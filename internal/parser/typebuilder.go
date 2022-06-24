@@ -44,24 +44,34 @@ func genericSolveType(parts [][]Token, parser *Parser, allowany bool) (OBJType, 
 		}
 		return solveTypeTuple(parts, parser, allowany)
 	}
-	if len(base) > 1 || base[0].Kind != IdToken {
-		//TODO: Modify in order to allow type route
-		return nil, errors.New("Type name must be one word identifier")
+	var name string = base[0].Data
+	var scope *Scope
+	var err error
+	if parser != nil {
+		var route []string
+		if route, err = getRoute(base); err == nil {
+			name, scope, err = getNameAndScope(parser, route)
+		}
+	} else if len(base) > 1 || base[0].Kind != IdToken {
+		err = errors.New("Type name must be one word identifier")
 	}
-	if o := isTypeLiteral(base[0], allowany); o != nil {
+	if err != nil {
+		return nil, err
+	}
+	if o := isTypeLiteral(name, allowany); o != nil {
 		if len(parts) > 1 {
 			return nil, errors.New("Literal must have no child type")
 		}
 		return o, nil
 	}
-	switch base[0].Data {
+	switch name {
 	case "Vec":
 		return solveTypeVec(parts[1:], parser, allowany)
 	case "Map":
 		return solveTypeMap(parts[1:], parser, allowany)
 	default:
 		if parser != nil {
-			obj, e := parser.currentScope().FetchType(base[0].Data)
+			obj, e := scope.FetchType(name)
 			if len(parts) > 1 {
 				return nil, errors.New("Unexpected child type")
 			}
@@ -70,15 +80,12 @@ func genericSolveType(parts [][]Token, parser *Parser, allowany bool) (OBJType, 
 			}
 			return *obj, nil
 		}
-		return nil, fmt.Errorf("Type not available: %s", base[0].Data)
+		return nil, fmt.Errorf("Type not available: %s", name)
 	}
 }
 
-func isTypeLiteral(tk Token, allowany bool) OBJType {
-	if tk.Kind != IdToken {
-		return nil
-	}
-	switch tk.Data {
+func isTypeLiteral(name string, allowany bool) OBJType {
+	switch name {
 	case Int.TypeName():
 		return Int
 	case Dec.TypeName():

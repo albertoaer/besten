@@ -238,7 +238,7 @@ func (s *syntaxRoute) runIntoStackSet(p *Parser, stack *[]Instruction, branch sy
 
 type syntaxCast struct {
 	origin syntaxBranch
-	into   string
+	into   []string
 }
 
 func (s *syntaxCast) runIntoStack(p *Parser, stack *[]Instruction) (OBJType, error) {
@@ -246,7 +246,11 @@ func (s *syntaxCast) runIntoStack(p *Parser, stack *[]Instruction) (OBJType, err
 	if e != nil {
 		return nil, e
 	}
-	n, e := p.currentScope().FetchType(s.into)
+	name, scope, e := getNameAndScope(p, s.into)
+	if e != nil {
+		return nil, e
+	}
+	n, e := scope.FetchType(name)
 	if e != nil {
 		return nil, e
 	}
@@ -270,14 +274,21 @@ func (s *syntaxCall) runIntoStack(p *Parser, stack *[]Instruction) (OBJType, err
 	if s.relation.origin != nil {
 		return Void, errors.New("A function must always be global defined")
 	}
-	if len(s.relation.route) > 1 {
-		return Void, errors.New("Not implemented function route navigation")
+	name, scope, err := getNameAndScope(p, s.relation.route)
+	if err != nil {
+		return nil, err
 	}
 	ops, stacks, err := runBranchesIntoStacks(p, s.operands)
 	if err != nil {
 		return nil, err
 	}
-	return p.solveFunctionCall(s.relation.route[0], false, ops, stacks, stack)
+	p.openForeignScope(scope)
+	ret, err := p.solveFunctionCall(name, false, ops, stacks, stack)
+	if err != nil {
+		return nil, err
+	}
+	p.closeScope()
+	return ret, nil
 }
 
 type syntaxOpCall struct {
@@ -333,14 +344,17 @@ func (s *syntaxFnReference) runIntoStack(p *Parser, stack *[]Instruction) (OBJTy
 	if s.relation.origin != nil {
 		return Void, errors.New("A function must always be global defined")
 	}
-	if len(s.relation.route) > 1 {
-		return Void, errors.New("Not implemented function route navigation")
-	}
-	sym, err := p.getSymbolForCall(s.relation.route[0], false, args)
+	name, scope, err := getNameAndScope(p, s.relation.route)
 	if err != nil {
 		return nil, err
 	}
-	fntp, cname := p.getFunctionTypeFrom(s.relation.route[0], sym)
+	p.openForeignScope(scope)
+	sym, err := p.getSymbolForCall(name, false, args)
+	if err != nil {
+		return nil, err
+	}
+	p.closeScope()
+	fntp, cname := p.getFunctionTypeFrom(name, sym)
 	*stack = append(*stack, MKInstruction(PSH, cname))
 	return fntp, nil
 }
@@ -395,20 +409,8 @@ type syntaxHighLevelCall struct {
 }
 
 func (s *syntaxHighLevelCall) runIntoStack(p *Parser, stack *[]Instruction) (OBJType, error) {
-	if s.relation == nil || len(s.relation.route) == 0 {
-		return Void, errors.New("No way to fetch function")
-	}
-	if s.relation.origin != nil {
-		return Void, errors.New("A function must always be global defined")
-	}
-	if len(s.relation.route) > 1 {
-		return Void, errors.New("Not implemented function route navigation")
-	}
-	ops, stacks, err := runBranchesIntoStacks(p, s.operands)
-	if err != nil {
-		return nil, err
-	}
-	ret, err := p.solveFunctionCall(s.relation.route[0], false, ops, stacks, stack)
+	call := syntaxCall{relation: s.relation, operands: s.operands, owner: s.owner}
+	ret, err := call.runIntoStack(p, stack)
 	if err == nil {
 		if s.owner.inReturn {
 			if (*stack)[len(*stack)-1].Code == CLL {
@@ -437,6 +439,22 @@ type syntaxBranch interface {
 
 type syntaxBranchSet interface {
 	runIntoStackSet(p *Parser, stack *[]Instruction, branch syntaxBranch) error
+}
+
+func getNameAndScope(p *Parser, route []string) (name string, scope *Scope, err error) {
+	scope = p.currentScope()
+	for i := 0; i < len(route)-1; i++ {
+		k, v := scope.ImportedModules[route[i]]
+		if !v {
+			err = fmt.Errorf("Module %s does not exists in %s", route[i], scope.DataModule.Name())
+			return
+		}
+		if scope, err = k.TryGetScope(); err != nil {
+			return
+		}
+	}
+	name = route[len(route)-1]
+	return
 }
 
 func runBranchesIntoStacks(p *Parser, branches []syntaxBranch) ([]OBJType, [][]Instruction, error) {
@@ -694,14 +712,11 @@ func (s *SyntaxTree) identifySubrouting(preceded syntaxBranch, nexttks []Token) 
 	var e error
 	if len(left) == len(nexttks) {
 		if !next(left, DOT) {
-			var id Token
-			if id, left, e = expectT(left, IdToken); e != nil {
+			route, e := getRoute(left)
+			if e != nil {
 				return nil, e
 			}
-			if e = unexpect(left); e != nil {
-				return nil, e
-			}
-			return &syntaxCast{preceded, id.Data}, nil
+			return &syntaxCast{preceded, route}, nil
 		}
 		left = discardOne(left)
 		route, e := getRoute(left)
