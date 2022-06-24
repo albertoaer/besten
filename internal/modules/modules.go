@@ -157,7 +157,7 @@ func (m *Modules) FileParser(requester int, path string) (*parser.Parser, error)
 			err = md.result
 		}
 		md.exclusion.Unlock()
-		if err != nil || parser != nil {
+		if err != nil || parser == nil {
 			return parser, err
 		}
 		<-md.queue
@@ -183,6 +183,8 @@ func (m *Modules) FileParser(requester int, path string) (*parser.Parser, error)
 	err = module_parser.ParseCode(blocks)
 	md.exclusion.Lock()
 	md.available = true
+	md.parser = module_parser
+	md.result = err
 	close(md.queue)
 	md.exclusion.Unlock()
 	return module_parser, err
