@@ -16,10 +16,10 @@ func solveContextedTypeFromTokens(tokens []Token, parser *Parser, allowany bool)
 	if err != nil {
 		return nil, err
 	}
-	return genericSolveType(parts, parser, allowany)
+	return genericSolveType(parts, parser, allowany, false)
 }
 
-func genericSolveType(parts [][]Token, parser *Parser, allowany bool) (OBJType, error) {
+func genericSolveType(parts [][]Token, parser *Parser, allowany bool, allowvoid bool) (OBJType, error) {
 	if len(parts) == 0 {
 		return nil, errors.New("Expecting type")
 	}
@@ -58,7 +58,7 @@ func genericSolveType(parts [][]Token, parser *Parser, allowany bool) (OBJType, 
 	if err != nil {
 		return nil, err
 	}
-	if o := isTypeLiteral(name, allowany); o != nil {
+	if o := isTypeLiteral(name, allowany, allowvoid); o != nil {
 		if len(parts) > 1 {
 			return nil, errors.New("Literal must have no child type")
 		}
@@ -84,7 +84,7 @@ func genericSolveType(parts [][]Token, parser *Parser, allowany bool) (OBJType, 
 	}
 }
 
-func isTypeLiteral(name string, allowany bool) OBJType {
+func isTypeLiteral(name string, allowany bool, allowvoid bool) OBJType {
 	switch name {
 	case Int.TypeName():
 		return Int
@@ -98,12 +98,16 @@ func isTypeLiteral(name string, allowany bool) OBJType {
 		if allowany {
 			return Any
 		}
+	case Void.TypeName():
+		if allowvoid {
+			return Void
+		}
 	}
 	return nil
 }
 
 func solveTypeMap(parts [][]Token, parser *Parser, allowany bool) (OBJType, error) {
-	inner, e := genericSolveType(parts, parser, allowany)
+	inner, e := genericSolveType(parts, parser, allowany, false)
 	if e != nil {
 		return nil, e
 	}
@@ -111,7 +115,7 @@ func solveTypeMap(parts [][]Token, parser *Parser, allowany bool) (OBJType, erro
 }
 
 func solveTypeVec(parts [][]Token, parser *Parser, allowany bool) (OBJType, error) {
-	inner, e := genericSolveType(parts, parser, allowany)
+	inner, e := genericSolveType(parts, parser, allowany, false)
 	if e != nil {
 		return nil, e
 	}
@@ -139,7 +143,7 @@ func solveTypeTuple(parts [][]Token, parser *Parser, allowany bool) (OBJType, er
 		types = append(types, result)
 	}
 	if len(parts) == 2 {
-		rettype, e := genericSolveType(parts[1:], parser, allowany)
+		rettype, e := genericSolveType(parts[1:], parser, allowany, true)
 		if e != nil {
 			return nil, e
 		}
