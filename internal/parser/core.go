@@ -259,7 +259,7 @@ func (p *Parser) parseDirect(block Block) error {
 	return nil
 }
 
-func (p *Parser) parseIf(tks []Token, children []Block) error {
+func (p *Parser) parseIf(tks []Token, children []Block, scp ScopeCtx) error {
 	tks = discardOne(tks)
 	tks, r := readUntilToken(tks, DO)
 	tp, e := p.parseExpression(tks, nil, false)
@@ -279,7 +279,7 @@ func (p *Parser) parseIf(tks []Token, children []Block) error {
 	editpoint := p.addInstruction(MKInstruction(MVF))
 	begin := p.fragmentSize()
 	p.openScope()
-	e = p.parseBlocks(children, Function)
+	e = p.parseBlocks(children, scp)
 	if e != nil {
 		return e
 	}
@@ -292,7 +292,7 @@ func (p *Parser) parseIf(tks []Token, children []Block) error {
 	return nil
 }
 
-func (p *Parser) parseElse(block Block) error {
+func (p *Parser) parseElse(block Block, scp ScopeCtx) error {
 	if !p.currentScope().ifFlags.afterif {
 		return errors.New("Unexpected block else")
 	}
@@ -311,7 +311,7 @@ func (p *Parser) parseElse(block Block) error {
 	p.currentScope().ifFlags.submitIfSkip(prevjump)
 	begin := p.fragmentSize()
 	if next(tks, IF) {
-		e := p.parseIf(tks, block.Children)
+		e := p.parseIf(tks, block.Children, scp)
 		if e != nil {
 			return e
 		}
@@ -324,7 +324,7 @@ func (p *Parser) parseElse(block Block) error {
 			return e
 		}
 		p.openScope()
-		e = p.parseBlocks(block.Children, Function)
+		e = p.parseBlocks(block.Children, scp)
 		if e != nil {
 			return e
 		}
@@ -364,8 +364,9 @@ func (p *Parser) parseWhile(block Block) error {
 	}
 	editpoint := p.addInstruction(MKInstruction(MVF))
 	begin := p.fragmentSize()
+	p.currentScope().forkLoopInfo()
 	p.openScope()
-	e = p.parseBlocks(block.Children, Function)
+	e = p.parseBlocks(block.Children, Loop)
 	if e != nil {
 		return e
 	}
@@ -375,6 +376,8 @@ func (p *Parser) parseWhile(block Block) error {
 	end := p.fragmentSize()
 	p.addInstruction(MKInstruction(MVR, whilestart-end-1))
 	p.editInstruction(editpoint, MKInstruction(MVF, end-begin+1))
+	p.currentScope().loopInfo.solveJumps(p, whilestart+1, end)
+	p.currentScope().closeLoopInfo()
 	return nil
 }
 
@@ -406,6 +409,7 @@ func (p *Parser) parseFor(block Block) error {
 	if e != nil {
 		return e
 	}
+	p.currentScope().forkLoopInfo()
 	p.openScope()
 	p.currentScope().CreateVariable(name, itertp, true, false)
 	setiter, e := p.currentScope().SetVariableIns(name, itertp)
@@ -436,13 +440,14 @@ func (p *Parser) parseFor(block Block) error {
 	}
 	editpoint := p.addInstruction(MKInstruction(MVT))
 	begin := p.fragmentSize()
-	e = p.parseBlocks(block.Children, Function)
+	e = p.parseBlocks(block.Children, Loop)
 	if e != nil {
 		return e
 	}
 	if e = p.closeScope(); e != nil {
 		return e
 	}
+	callnextpoint := p.fragmentSize()
 	nitertp, e := p.processFunctionCall("next", false, []OBJType{itertp}, [][]Instruction{getiter.Fragment()})
 	if e != nil {
 		return e
@@ -454,6 +459,39 @@ func (p *Parser) parseFor(block Block) error {
 	end := p.fragmentSize()
 	p.addInstruction(MKInstruction(MVR, forstart-end-1))
 	p.editInstruction(editpoint, MKInstruction(MVT, end-begin+1))
+	p.currentScope().loopInfo.solveJumps(p, callnextpoint-1, end)
+	p.currentScope().closeLoopInfo()
+	return nil
+}
+
+func (p *Parser) parseLoopJump(block Block, skip bool) error {
+	line := discardOne(block.Tokens)
+	var err error
+	loopTarget := 0
+	if isNext(line) {
+		var n Token
+		n, line, err = expectT(line, IntegerToken)
+		if err != nil {
+			return err
+		}
+		loopTarget, err = strconv.Atoi(n.Data)
+		if err != nil {
+			return err
+		}
+	}
+	if err = unexpect(line); err != nil {
+		return err
+	}
+	idx := p.addInstruction(MKInstruction(MVR))
+	info := p.currentScope().loopInfo
+	for loopTarget > 0 {
+		if info.father == nil {
+			return errors.New("Too much loop depth")
+		}
+		info = info.father
+		loopTarget--
+	}
+	info.insertJump(idx, skip)
 	return nil
 }
 
@@ -466,27 +504,37 @@ func (p *Parser) parseByKeyword(name string, block Block, scp ScopeCtx) error {
 			return p.loadModuleAux(block.Tokens, p.env.File)
 		}
 	}
-	if scp == Function {
+	if scp == Function || scp == Loop {
 		switch name {
 		case "return":
 			return p.parseReturn(block)
 		case "direct":
 			return p.parseDirect(block)
 		case "if":
-			return p.parseIf(block.Tokens, block.Children)
+			return p.parseIf(block.Tokens, block.Children, scp)
 		case "while":
 			return p.parseWhile(block)
 		case "else":
-			return p.parseElse(block)
+			return p.parseElse(block, scp)
 		case "for":
 			return p.parseFor(block)
 		case "var", "val":
 			return p.parseDefinition(block, name == "val")
 		}
 	}
+	if scp == Loop {
+		switch name {
+		case "break":
+			return p.parseLoopJump(block, true)
+		case "continue":
+			return p.parseLoopJump(block, false)
+		}
+	}
 	switch name {
 	case "fn", "op":
 		return p.parseFunction(block, name == "op")
+	case "omit":
+		return nil //The block is omitted
 	}
 	return errors.New(fmt.Sprintf("Unexpected keyword found: %s", name))
 }
@@ -528,7 +576,7 @@ func (p *Parser) parseBlock(block Block, scp ScopeCtx) error {
 	}
 	if nextT(block.Tokens, KeywordToken) {
 		err = p.parseByKeyword(block.Tokens[0].Data, block, scp)
-	} else if scp == Function {
+	} else if scp == Function || scp == Loop {
 		var ret OBJType
 		ret, err = p.parseExpression(block.Tokens, block.Children, false)
 		if ret != Void {

@@ -178,6 +178,31 @@ type Variable struct {
 	Dependency *Scope
 }
 
+type LoopInfo struct {
+	father *LoopInfo
+	jumps  []struct {
+		position int
+		skip     bool
+	}
+}
+
+func (li *LoopInfo) insertJump(position int, skip bool) {
+	li.jumps = append(li.jumps, struct {
+		position int
+		skip     bool
+	}{position, skip})
+}
+
+func (li *LoopInfo) solveJumps(parser *Parser, next_pos, end_pos int) {
+	for _, v := range li.jumps {
+		pos := next_pos
+		if v.skip {
+			pos = end_pos
+		}
+		parser.editInstruction(v.position, MKInstruction(MVR, pos-v.position))
+	}
+}
+
 type ifFlags struct {
 	altered    bool
 	afterif    bool
@@ -226,12 +251,27 @@ type Scope struct {
 	Functions    *FunctionCollection
 	Operators    *FunctionCollection
 	ifFlags      *ifFlags
+	loopInfo     *LoopInfo
 	returnLnFlag *returnLnFlag
 	ReturnType   *OBJType
 	Returned     *bool
 	parent       *Scope
 	varcount     *uint
 	argcount     *uint
+}
+
+func (s *Scope) forkLoopInfo() {
+	s.loopInfo = &LoopInfo{s.loopInfo, make([]struct {
+		position int
+		skip     bool
+	}, 0)}
+}
+
+func (s *Scope) closeLoopInfo() {
+	if s.loopInfo == nil {
+		panic(errors.New("Trying to close not opened loop"))
+	}
+	s.loopInfo = s.loopInfo.father
 }
 
 func (s *Scope) CreateVariable(name string, t OBJType, mutable bool, arg bool) {
@@ -294,6 +334,7 @@ func NewScope() *Scope {
 		Functions:    NewFunctionCollection(),
 		Operators:    NewFunctionCollection(),
 		ifFlags:      createIfFlags(),
+		loopInfo:     nil,
 		returnLnFlag: createReturnLnFlag(),
 		ReturnType:   &rptr, Returned: &r, parent: nil, varcount: &vc, argcount: &ac}
 }
@@ -314,6 +355,7 @@ func (s *Scope) Open(fnscope bool) *Scope {
 		Functions:    s.Functions.Fork(),
 		Operators:    s.Operators.Fork(),
 		ifFlags:      createIfFlags(),
+		loopInfo:     s.loopInfo,
 		returnLnFlag: createReturnLnFlag(),
 		ReturnType:   returnt, Returned: returned, parent: s, varcount: vc, argcount: ac}
 	for k, v := range s.Variables {

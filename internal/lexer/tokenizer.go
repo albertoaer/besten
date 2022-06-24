@@ -54,7 +54,7 @@ var underscore_mark rune = '_'
 var specials []string = []string{",", ".", "(", ")", ":", "[", "]", "{", "}"}
 var keywords []string = []string{"require", "import", "struct", "return", "fn", "op", "do",
 	"val", "var", "if", "else", "for", "in", "while", "collect", "done", "throw", "catch",
-	"true", "false", "direct", "ref"}
+	"true", "false", "direct", "ref", "break", "continue", "omit"}
 
 func strArrContains(arr []string, elem string) bool {
 	for _, a := range arr {

@@ -32,6 +32,7 @@ type ScopeCtx uint
 const (
 	Global   ScopeCtx = 0
 	Function ScopeCtx = 1
+	Loop     ScopeCtx = 2
 )
 
 func NewParser(env ImportEnv) *Parser {
