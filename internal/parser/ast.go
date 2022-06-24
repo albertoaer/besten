@@ -210,12 +210,17 @@ func (s *syntaxOpCall) runIntoStack(p *Parser, stack *[]Instruction) (OBJType, e
 }
 
 type syntaxTypeCreation struct {
-	typenames [][]Token
-	owner     *SyntaxTree
+	typeref []Token
+	owner   *SyntaxTree
 }
 
 func (s *syntaxTypeCreation) runIntoStack(p *Parser, stack *[]Instruction) (OBJType, error) {
-	return Void, nil
+	obj, e := solveTypeFromTokens(s.typeref)
+	if e != nil {
+		return nil, e
+	}
+	//TODO: Create the type
+	return obj, nil
 }
 
 type syntaxHighLevelCall struct {
@@ -446,12 +451,7 @@ func (s *SyntaxTree) identifyExpressionBranch(tks []Token) (syntaxBranch, error)
 		var preceded syntaxBranch
 		var e error
 		if len(left) == 0 { //Create type
-			typenames, err := splitByToken(inner, func(t Token) bool { return t == SPLITTER }, make([]struct {
-				open  Token
-				close Token
-			}, 0), false, false, false)
-			e = err
-			preceded = &syntaxTypeCreation{typenames, s}
+			preceded = &syntaxTypeCreation{left, s}
 		} else { //Indexation
 			route, e := getRoute(left)
 			if e != nil {
@@ -591,7 +591,8 @@ func splitFirstLevelFunctionCall(tks []Token, haslambda bool, children []Block) 
 		} else {
 			name = ttks[0]
 			args, modifiers, err = substractModifiers(ttks[1])
-			template.Args, template.Varargs, err = parseArguments(ttks[2])
+			//FIXME: solution for types
+			template.Args, _, _, template.Varargs, err = parseArguments(ttks[2])
 			template.Children = children
 			if err == nil {
 				return

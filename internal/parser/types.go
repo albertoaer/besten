@@ -12,8 +12,8 @@ const (
 	STRING  PrimitiveType = 6
 	VECTOR  PrimitiveType = 7
 	MAP     PrimitiveType = 8
-	STRUCT  PrimitiveType = 9
-	TUPLE   PrimitiveType = 10
+	TUPLE   PrimitiveType = 9
+	STRUCT  PrimitiveType = 10
 )
 
 func ArrRepr(arr []OBJType) string {
@@ -29,6 +29,7 @@ func ArrRepr(arr []OBJType) string {
 }
 
 func Repr(a OBJType) string {
+	//TODO: Modify representation, for example, tuple: {type1, type2}
 	base := a.TypeName()
 	switch a.Primitive() {
 	case VECTOR, MAP:
@@ -168,32 +169,59 @@ func (nc *Container) NamedItems() map[string]OBJType {
 	return nil
 }
 
-type StructureContainer struct {
-	ContainerType PrimitiveType
-	ItemsType     map[string]OBJType
-	Name          string
+type Tuple struct {
+	ItemTypes []OBJType
+}
+
+func TupleOf(items []OBJType) OBJType {
+	return &Tuple{items}
+}
+
+func (nc *Tuple) TypeName() string {
+	return "Tuple"
+}
+
+func (nc *Tuple) Primitive() PrimitiveType {
+	return TUPLE
+}
+
+func (nc *Tuple) Items() OBJType {
+	return nil
+}
+
+func (nc *Tuple) FixedItems() []OBJType {
+	return nc.ItemTypes
+}
+
+func (nc *Tuple) NamedItems() map[string]OBJType {
+	return nil
+}
+
+type Structure struct {
+	ItemsType map[string]OBJType
+	Name      string
 }
 
 func StructOf(fields map[string]OBJType, name string) OBJType {
-	return &StructureContainer{STRUCT, fields, name}
+	return &Structure{fields, name}
 }
 
-func (nc *StructureContainer) TypeName() string {
+func (nc *Structure) TypeName() string {
 	return nc.Name
 }
 
-func (nc *StructureContainer) Primitive() PrimitiveType {
-	return nc.ContainerType
+func (nc *Structure) Primitive() PrimitiveType {
+	return STRUCT
 }
 
-func (nc *StructureContainer) Items() OBJType {
+func (nc *Structure) Items() OBJType {
 	return nil
 }
 
-func (nc *StructureContainer) FixedItems() []OBJType {
+func (nc *Structure) FixedItems() []OBJType {
 	return nil
 }
 
-func (nc *StructureContainer) NamedItems() map[string]OBJType {
+func (nc *Structure) NamedItems() map[string]OBJType {
 	return nc.ItemsType
 }

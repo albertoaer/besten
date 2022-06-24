@@ -93,6 +93,10 @@ func (p *Parser) generateFunctionFromTemplate(name string, operator bool, caller
 		err = errors.New(fmt.Sprintf("There is no %s symbol %s/%d for %s", symboltype, name, len(callers), ArrRepr(callers)))
 		return
 	}
+	return p.generateFunctionFromRawTemplate(name, operator, callers, template)
+}
+
+func (p *Parser) generateFunctionFromRawTemplate(name string, operator bool, callers []OBJType, template *FunctionTemplate) (sym *FunctionSymbol, err error) {
 	compilename := generateFnUUID(name, p.modulename, len(callers))
 
 	p.openFragmentFor(compilename, len(template.Args), template.Varargs)
@@ -120,7 +124,6 @@ func (p *Parser) generateFunctionFromTemplate(name string, operator bool, caller
 	}
 	p.addInstruction(runtime.MKInstruction(runtime.RET))
 	p.backToFragment()
-
 	return
 }
 

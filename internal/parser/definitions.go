@@ -27,6 +27,8 @@ var (
 	PCLOSE         = Token{Data: ")", Kind: SpecialToken}
 	BOPEN          = Token{Data: "[", Kind: OperatorToken}
 	BCLOSE         = Token{Data: "]", Kind: OperatorToken}
+	CBOPEN         = Token{Data: "{", Kind: OperatorToken}
+	CBCLOSE        = Token{Data: "}", Kind: OperatorToken}
 	TRUE           = Token{Data: "true", Kind: KeywordToken}
 	FALSE          = Token{Data: "false", Kind: KeywordToken}
 )

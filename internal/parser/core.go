@@ -10,42 +10,63 @@ import (
 	. "github.com/Besten/internal/runtime"
 )
 
-func parseArguments(tks []Token) (args []string, varargs bool, err error) {
+func parseArguments(tks []Token) (args []string, types []OBJType, usetypes bool, varargs bool, err error) {
 	tks = discardOne(tks)
 	preargs, r := readUntilToken(tks, DO)
-	argtk, err := splitByToken(preargs, func(tk Token) bool { return tk == COMA }, make([]struct {
-		open  Token
-		close Token
-	}, 0), false, false, false)
 	if err != nil {
 		return
 	}
-	tail, e := expect(r, DO)
-	if e != nil {
-		err = e
-		return
+	{
+		tail, e := expect(r, DO)
+		if e != nil {
+			err = e
+			return
+		}
+		if e := unexpect(tail); e != nil {
+			err = e
+			return
+		}
 	}
-	if e := unexpect(tail); e != nil {
-		err = e
-		return
-	}
+	argtk, err := splitByToken(preargs, func(tk Token) bool { return tk == COMA }, []struct {
+		open  Token
+		close Token
+	}{{CBOPEN, CBCLOSE}}, false, false, false)
 	for i, v := range argtk {
-		nm, _, e := expectT([]Token{v[len(v)-1]}, IdToken)
+		n := v
+		if next(n, QUOTE) {
+			if i == len(argtk)-1 {
+				varargs = true
+				n = discardOne(n)
+			} else {
+				err = errors.New(fmt.Sprintf("Unexpected token: %s", v[0].Data))
+				return
+			}
+		}
+		nm, n, e := expectT(n, IdToken)
 		if e != nil {
 			err = e
 			return
 		}
 		args = append(args, nm.Data)
-		if len(v) > 1 {
-			if i == len(argtk)-1 {
-				_, e := expect(v, QUOTE)
-				if e != nil {
-					err = e
-					return
-				}
-				varargs = true
-			} else {
-				err = errors.New(fmt.Sprintf("Unexpected token: %s", v[0].Data))
+		if i == 0 && len(n) > 0 {
+			usetypes = true
+			types = make([]OBJType, 0)
+		}
+		if usetypes {
+			if len(n) == 0 {
+				err = errors.New(fmt.Sprintf("Expecting type for argument: %s", nm.Data))
+				return
+			}
+			tp, e := solveTypeFromTokens(n)
+			if e != nil {
+				err = e
+				return
+			}
+			types = append(types, tp)
+		} else {
+			if len(n) > 0 {
+				err = errors.New(fmt.Sprintf("Unexpected type for template argument: %s", nm.Data))
+				return
 			}
 		}
 	}
@@ -81,14 +102,22 @@ func (p *Parser) parseFunction(block Block, operator bool) error {
 		return e
 	}
 	var args []string
+	var types []OBJType
+	var usetypes bool
 	varargs := false
 	if next(tks, DOUBLES) {
-		args_, varargs_, e := parseArguments(tks)
+		args, types, usetypes, varargs, e = parseArguments(tks)
 		if e != nil {
 			return e
 		}
-		args = args_
-		varargs = varargs_
+	} else {
+		ntk, e := expect(tks, DO)
+		if e != nil {
+			return e
+		}
+		if e := unexpect(ntk); e != nil {
+			return e
+		}
 	}
 	if operator && (len(args) > 2 || len(args) < 1) {
 		return errors.New("Operator must be unary or binary")
@@ -97,8 +126,17 @@ func (p *Parser) parseFunction(block Block, operator bool) error {
 		return errors.New("Operator can not have varargs")
 	}
 	template := FunctionTemplate{Args: args, Varargs: varargs, Children: block.Children}
-	p.generateFunctionTemplate(name.Data, operator, template)
-	return nil
+	if usetypes {
+		if operator {
+			p.currentScope().Operators.SaveSymbolHolder(name.Data)
+		} else {
+			p.currentScope().Functions.SaveSymbolHolder(name.Data)
+		}
+		_, e = p.generateFunctionFromRawTemplate(name.Data, operator, types, &template)
+	} else {
+		e = p.generateFunctionTemplate(name.Data, operator, template)
+	}
+	return e
 }
 
 func (p *Parser) parseDefinition(block Block, constant bool) error {
