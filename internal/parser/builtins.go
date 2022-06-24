@@ -179,6 +179,7 @@ func injectBuiltinFunctions(to *FunctionCollection) {
 		}
 		return nil
 	})
+	to.AddSymbol("not", wrapOpInstruction(NOTB, Bool, true))
 }
 
 func injectBuiltinOperators(to *FunctionCollection) {
