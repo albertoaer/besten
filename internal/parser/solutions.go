@@ -90,7 +90,7 @@ func (p *Parser) generateFunctionFromTemplate(name string, operator bool, caller
 		if operator {
 			symboltype = "operator"
 		}
-		err = errors.New(fmt.Sprintf("There is no %s symbol %s/%d for %s", symboltype, name, len(callers), ArrRepr(callers)))
+		err = errors.New(fmt.Sprintf("There is no %s symbol %s/%d for %s", symboltype, name, len(callers), FnCArrRepr(callers)))
 		return
 	}
 	return p.generateFunctionFromRawTemplate(name, operator, callers, template)

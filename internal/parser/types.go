@@ -16,32 +16,29 @@ const (
 	STRUCT  PrimitiveType = 10
 )
 
-func ArrRepr(arr []OBJType) string {
-	rep := "("
+func FnCArrRepr(arr []OBJType) string {
+	return ArrRepr(arr, '(', ')')
+}
+
+func ArrRepr(arr []OBJType, o, c rune) string {
+	rep := string(o)
 	for i, a := range arr {
 		rep += Repr(a)
 		if i < len(arr)-1 {
 			rep += ","
 		}
 	}
-	rep += ")"
+	rep += string(c)
 	return rep
 }
 
 func Repr(a OBJType) string {
-	//TODO: Modify representation, for example, tuple: {type1, type2}
 	base := a.TypeName()
 	switch a.Primitive() {
 	case VECTOR, MAP:
 		base += "|" + Repr(a.Items())
-	case STRUCT:
-		var items []OBJType
-		for _, i := range items {
-			items = append(items, i)
-		}
-		base += "|" + ArrRepr(items)
 	case TUPLE:
-		base += "|" + ArrRepr(a.FixedItems())
+		return ArrRepr(a.FixedItems(), '{', '}')
 	}
 	return base
 }

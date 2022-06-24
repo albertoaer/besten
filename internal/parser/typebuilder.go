@@ -43,12 +43,12 @@ func genericSolveType(parts [][]Token) (OBJType, error) {
 		return o, nil
 	}
 	switch base[0].Data {
-	case "vec":
+	case "Vec":
 		return solveTypeVec(parts[1:])
-	case "map":
+	case "Map":
 		return solveTypeMap(parts[1:])
 	default:
-		return nil, errors.New(fmt.Sprintf("Type not found: %s", base[0].Data))
+		return nil, errors.New(fmt.Sprintf("Type not available: %s", base[0].Data))
 	}
 }
 
@@ -57,16 +57,16 @@ func isTypeLiteral(tk Token) OBJType {
 		return nil
 	}
 	switch tk.Data {
-	case Int.TypeName():
+	case "Int":
 		return Int
-	case Dec.TypeName():
+	case "Double":
 		return Dec
-	case Bool.TypeName():
+	case "Bool":
 		return Bool
-	case Str.TypeName():
+	case "Str":
 		return Str
-	case Any.TypeName():
-		return Any
+		/*case Any.TypeName(): //Any type may generate undefined behaviour
+		return Any*/
 	}
 	return nil
 }
