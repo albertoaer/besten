@@ -1,6 +1,6 @@
 package modules
 
-import "github.com/Besten/internal/runtime"
+import "github.com/besten/internal/runtime"
 
 func (m *Modules) RequestSymbol(requester int, name string, args int) *runtime.Symbol {
 	m.symbolmx.Lock()

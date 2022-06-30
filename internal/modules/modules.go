@@ -10,9 +10,9 @@ import (
 	"path/filepath"
 	"sync"
 
-	. "github.com/Besten/internal/lexer"
-	"github.com/Besten/internal/parser"
-	. "github.com/Besten/internal/runtime"
+	. "github.com/besten/internal/lexer"
+	"github.com/besten/internal/parser"
+	. "github.com/besten/internal/runtime"
 )
 
 func prettyTokens(blocks []Block, tabs string) {
@@ -152,7 +152,7 @@ func (m *Modules) FileParser(requester int, path string) (*parser.Parser, error)
 		return nil, err
 	}
 	if filepath.Ext(path) != ".bst" {
-		return nil, errors.New("File does not have Besten extension")
+		return nil, errors.New("File does not have besten extension")
 	}
 	var md *storedModule
 	if m.checkModuleExistence(requester, path, &md) {

@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/Besten/internal/modules"
-	"github.com/Besten/internal/runtime"
+	"github.com/besten/internal/modules"
+	"github.com/besten/internal/runtime"
 )
 
 func args() []runtime.Object {
@@ -21,7 +21,7 @@ func main() {
 	var step string = "compilation"
 	defer func() {
 		if e := recover(); e != nil {
-			fmt.Printf("Besten error during %s: %s\n\t", step, e)
+			fmt.Printf("besten error during %s: %s\n\t", step, e)
 		}
 	}()
 	var file string

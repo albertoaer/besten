@@ -3,7 +3,7 @@ package parser
 import (
 	"fmt"
 
-	. "github.com/Besten/internal/lexer"
+	. "github.com/besten/internal/lexer"
 )
 
 func discardOne(tks []Token) []Token {

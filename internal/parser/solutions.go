@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/Besten/internal/runtime"
+	"github.com/besten/internal/runtime"
 )
 
 func (p *Parser) processFunctionCall(name string, operator bool, callers []OBJType,

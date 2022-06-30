@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	. "github.com/Besten/internal/runtime"
+	. "github.com/besten/internal/runtime"
 )
 
 func mathOpInstruction(int_, float_ ICode) []*FunctionSymbol {

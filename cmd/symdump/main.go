@@ -9,8 +9,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Besten/internal/modules"
-	"github.com/Besten/internal/runtime"
+	"github.com/besten/internal/modules"
+	"github.com/besten/internal/runtime"
 )
 
 func itable(path string) map[int]string {

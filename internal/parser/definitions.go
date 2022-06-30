@@ -1,7 +1,7 @@
 package parser
 
 import (
-	. "github.com/Besten/internal/lexer"
+	. "github.com/besten/internal/lexer"
 )
 
 var (

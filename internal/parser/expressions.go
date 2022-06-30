@@ -3,8 +3,8 @@ package parser
 import (
 	"fmt"
 
-	. "github.com/Besten/internal/lexer"
-	. "github.com/Besten/internal/runtime"
+	. "github.com/besten/internal/lexer"
+	. "github.com/besten/internal/runtime"
 )
 
 func (p *Parser) parseExpression(tks []Token, children []Block, returning bool) (OBJType, error) {

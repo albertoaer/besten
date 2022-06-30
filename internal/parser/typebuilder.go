@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	. "github.com/Besten/internal/lexer"
+	. "github.com/besten/internal/lexer"
 )
 
 func solveTypeFromTokens(tokens []Token, allowany bool) (OBJType, error) {

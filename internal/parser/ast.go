@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strconv"
 
-	. "github.com/Besten/internal/lexer"
-	. "github.com/Besten/internal/runtime"
+	. "github.com/besten/internal/lexer"
+	. "github.com/besten/internal/runtime"
 )
 
 var genericPairs = []struct {

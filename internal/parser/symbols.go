@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	. "github.com/Besten/internal/runtime"
+	. "github.com/besten/internal/runtime"
 )
 
 type Variable struct {

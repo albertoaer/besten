@@ -3,7 +3,7 @@ package parser
 import (
 	"errors"
 
-	"github.com/Besten/internal/runtime"
+	"github.com/besten/internal/runtime"
 )
 
 var defaultTypes []OBJType = []OBJType{Void, Int, Dec, Bool, Str, Atom, Any}
