@@ -1,4 +1,15 @@
-# Besten
+<img width='128' height='128' src='https://user-images.githubusercontent.com/24974091/176786448-42a89ae4-5e19-4a8d-a7bc-cb8a6bce2b70.png'></img>
+
+Besten is a programming language made in my spare time, it may have no more commits as I'm working on other repositories
+
+I encourage you to check the source code out as the language contains interesting features like:
+- Complete working type system
+- A virtual machine full featured reusable for other projects
+- Concurrent module loader
+- Templated functions and data structures for its manipulation
+- Lexer with Python like block indentations
+- Extensible abstract syntax tree for expressions
+- And so on...
 
 ## What holds this repository?
 1. Besten Lexer
