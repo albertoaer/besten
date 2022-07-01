@@ -1,5 +1,5 @@
 #!./besten
-import "./std/iterators.bst"
+import "./std"
 
 fn main: args Vec|Str do
     for line in indexer: vec(
