@@ -103,7 +103,7 @@ func (m *Modules) LoadModule(requester int, path string) (parser.Module, error) 
 		return nil, errors.New("Expecting mod.bst file for folder module")
 	}
 	var files []fs.FileInfo
-	if files, err = ioutil.ReadDir(path); files != nil {
+	if files, err = ioutil.ReadDir(path); err != nil {
 		return nil, err
 	}
 	for _, file := range files {
@@ -162,27 +162,20 @@ func (m *Modules) FileParser(requester int, path string) (*parser.Parser, error)
 		if m.isRequesting(requester, md.identifier) {
 			return nil, errors.New("Circular dependency")
 		}
-		var parser *parser.Parser
-		var err error
 		md.exclusion.Lock()
 		if md.available {
-			parser = md.parser
-			err = md.result
+			defer md.exclusion.Unlock()
+			return md.parser, md.result
 		}
 		md.exclusion.Unlock()
-		if err != nil || parser == nil {
-			return parser, err
-		}
 		<-md.queue
 		md.exclusion.Lock()
 		if !md.available {
-			err = errors.New("File was no treaty")
+			return nil, errors.New("File was no treaty")
 		} else {
-			parser = md.parser
-			err = md.result
+			defer md.exclusion.Unlock()
+			return md.parser, md.result
 		}
-		md.exclusion.Unlock()
-		return parser, err
 	}
 	filesrc := fileSource{path}
 	blocks, err := LexerFor(&filesrc).GetBlocks()
